@@ -2587,9 +2587,18 @@ api_key: ${esc(s.admin_key)}   # or any client key</p>
     const logBox = $("#mail-deploy-log");
     mailDeploying = true;
     if (btn) { btn.disabled = true; btn.textContent = 'Deploying…'; }
-    if (logBox) { logBox.style.display = 'block'; logBox.textContent = 'working…'; }
+    if (logBox) { logBox.style.display = 'block'; logBox.textContent = 'Starting worker deploy…'; }
+    const pollId = setInterval(async () => {
+      try {
+        const p = await api("/admin/dash/generator/mail/deploy-progress");
+        if (p && p.steps && p.steps.length && logBox) {
+          logBox.textContent = p.steps.map(s => '· ' + s).join('\n') + (p.running ? '\n…' : '');
+        }
+      } catch (_) {}
+    }, 1000);
     try {
       const r = await api("/admin/dash/generator/mail/deploy", {method:"POST", body:"{}"});
+      clearInterval(pollId);
       if (logBox) {
         logBox.textContent = (r.steps || []).map(s => '· ' + s).join('\n')
           + (r.ok ? '\n✓ done' : '\n✗ ' + (r.error || 'failed'));
@@ -2603,11 +2612,14 @@ api_key: ${esc(s.admin_key)}   # or any client key</p>
         toast("deploy failed: " + first, "err");
       }
     } catch (e) {
+      clearInterval(pollId);
       if (logBox) logBox.textContent = '✗ ' + e.message;
       toast("deploy failed: " + String(e.message).split('\n')[0].slice(0, 140), "err");
+    } finally {
+      clearInterval(pollId);
+      mailDeploying = false;
+      mailRender();
     }
-    mailDeploying = false;
-    mailRender();
   }
 
   function mailSelDomain(d){ mailSel = d; mailRender(); }

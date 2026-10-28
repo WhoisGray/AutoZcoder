@@ -1095,6 +1095,13 @@ async def generator_mail_deploy_status(request: Request, key: str = Depends(admi
         return {"exported": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
+@router.get("/admin/dash/generator/mail/deploy-progress")
+async def generator_mail_deploy_progress(request: Request, key: str = Depends(admin_key)) -> dict:
+    """Live progress steps during worker deployment."""
+    mgr = _generator(request)
+    return mgr.deploy_progress()
+
+
 @router.post("/admin/dash/generator/mail/deploy")
 async def generator_mail_deploy(request: Request, key: str = Depends(admin_key)) -> dict:
     """One-click worker deploy: login (browser only if needed) → KV → deploy

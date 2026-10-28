@@ -1223,8 +1223,12 @@ def _run_capture(args, cwd, timeout, env=None) -> subprocess.CompletedProcess:
     timeout. `npx` is a .cmd shim in front of node: run()'s own kill only hits
     the shim, orphaning node — which then keeps wrangler's OAuth port bound and
     makes the next login attempt fail with "address in use"."""
+    clean_args = list(args)
+    if clean_args and "npx" in Path(str(clean_args[0])).name.lower():
+        if len(clean_args) > 1 and clean_args[1] not in ("--yes", "-y"):
+            clean_args.insert(1, "--yes")
     proc = subprocess.Popen(
-        args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        clean_args, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         text=True, encoding="utf-8", errors="replace", shell=False, env=env,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     try:
@@ -1934,11 +1938,20 @@ class GeneratorManager:
                        "`npx wrangler login --device` in a terminal (or set "
                        "CLOUDFLARE_API_TOKEN) and retry.")
 
+    def deploy_progress(self) -> dict:
+        running = getattr(self, "_deploy_lock", None) is not None and self._deploy_lock.locked()
+        return {"running": running, "steps": list(getattr(self, "_deploy_progress", []))}
+
     def _deploy_worker_locked(self, progress=None) -> dict:
         import re as _re
 
+        self._deploy_progress: list[str] = []
+
         def say(msg):
             log.info("worker deploy: %s", msg)
+            if getattr(self, "_deploy_progress", None) is None:
+                self._deploy_progress = []
+            self._deploy_progress.append(msg)
             if progress:
                 try:
                     progress(msg)
