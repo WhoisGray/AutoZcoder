@@ -232,6 +232,8 @@ th .arr{font-size:9px; margin-left:3px; color:var(--accent-soft)}
 .cap-cell{min-width:250px; font-size:12px}
 .cap-entry + .cap-entry{margin-top:12px; padding-top:10px; border-top:1px solid var(--border)}
 .cap-entry b{display:block; color:var(--fg); overflow-wrap:anywhere}
+.cap-bar{height:5px; border-radius:3px; background:var(--elev, #1c1f27); margin-top:5px; overflow:hidden}
+.cap-fill{height:100%; border-radius:3px; background:var(--accent); transition:width .4s}
 .reset-time{color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; line-height:1.6}
 .reset-time time{white-space:nowrap}
 .reset-left{display:block; color:var(--fg)}
@@ -875,6 +877,17 @@ const App = (() => {
       </div></div>`;
     } else {
       const shown = rows;
+      // pool-wide token totals per model, summed over every account's last balance poll
+      const tokens = pool.tokens_by_model || {};
+      const tokenRows = Object.entries(tokens).sort((a, b) => b[1].remaining - a[1].remaining)
+        .map(([model, t]) => `<div class="cap-entry">
+          <b>${esc(model)}</b>
+          <div>${Number(t.remaining).toLocaleString()} / ${Number(t.total).toLocaleString()} tokens
+            <span style="color:var(--faint)"> · ${Number(t.used).toLocaleString()} used · ${t.accounts} acct${t.accounts === 1 ? "" : "s"}</span></div>
+          <div class="cap-bar"><div class="cap-fill" style="width:${t.total ? Math.min(100, Math.round(t.remaining / t.total * 100)) : 0}%"></div></div>
+        </div>`).join("");
+      if (tokenRows) html += `<div class="card" style="margin-bottom:12px">
+        <h2 style="font-size:14px; margin:0 0 8px">Pool tokens by model</h2>${tokenRows}</div>`;
       html += `<p class="reset-note">Cap resets in ${esc(localZone)} · Based on Zcode quota windows.</p>`;
       html += `<div class="tbl-wrap"><table><thead><tr>
         <th>Email</th><th>State</th><th>Plan / expiry</th><th>Token</th>

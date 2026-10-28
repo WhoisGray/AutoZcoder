@@ -773,8 +773,31 @@ class PoolManager:
             "ready": sum(1 for a in accounts if a.is_ready()),
             "ready_paid": sum(1 for a in accounts if a.is_ready(require_paid=True)),
             "paid_exhausted": sum(1 for a in accounts if a.paid_exhausted),
+            # pool-wide token totals per model, summed over every account's
+            # last balance poll (remaining/total/used)
+            "tokens_by_model": self._tokens_by_model(accounts),
             "detail": [a.to_public() for a in accounts],
         }
+
+    @staticmethod
+    def _tokens_by_model(accounts) -> dict:
+        def _num(v):
+            try:
+                return max(0, int(v or 0))
+            except (TypeError, ValueError):
+                return 0
+
+        totals: dict[str, dict[str, int]] = {}
+        for a in accounts:
+            for model, q in (a.notes.get("quotas") or {}).items():
+                if not isinstance(q, dict):
+                    continue
+                t = totals.setdefault(model, {"remaining": 0, "total": 0, "used": 0, "accounts": 0})
+                t["remaining"] += _num(q.get("remaining"))
+                t["total"] += _num(q.get("total"))
+                t["used"] += _num(q.get("used"))
+                t["accounts"] += 1
+        return totals
 
     async def ready_count(self, require_paid: bool = False) -> int:
         return sum(1 for a in await self.all() if a.is_ready(require_paid=require_paid))
