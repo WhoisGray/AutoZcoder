@@ -93,10 +93,15 @@ def main() -> int:
                 print(f"[build] Bundling captcha-mint sidecar: {cand.name}")
                 break
 
-        mode = ["--console"] if (args.console or sys.platform != "win32") else ["--windowed"]
-
+        # macOS: a windowed build produces a proper .app bundle (Dock icon,
+        # no terminal window). icns only applies to the bundle; fall back to
+        # the shared .ico for a bare-binary console build.
+        if sys.platform == "darwin":
+            mode = ["--windowed"] if not args.console else ["--console"]
         icon_args: list[str] = []
-        icon_path = HERE / "assets" / "zcode.ico"
+        icns_path = HERE / "assets" / "zcode.icns"
+        icon_path = (icns_path if sys.platform == "darwin" and icns_path.is_file()
+                     else HERE / "assets" / "zcode.ico")
         if icon_path.is_file():
             icon_args = ["--icon", str(icon_path)]
 
@@ -137,6 +142,7 @@ def main() -> int:
             if sys.platform == "darwin":
                 hidden_imports.extend(["objc", "WebKit"])
 
+        env = dict(os.environ, PYINSTALLER_CONFIG_DIR=str(HERE / "build" / "pyi-cache"))
         cmd: list[str] = [
             sys.executable, "-m", "PyInstaller",
             "--noconfirm",
@@ -165,7 +171,7 @@ def main() -> int:
         ])
 
         print(f"[build] Building {binary_name} on {platform.system()}...")
-        res = subprocess.run(cmd, cwd=HERE)
+        res = subprocess.run(cmd, cwd=HERE, env=env)
         if res.returncode != 0:
             print(f"[build] PyInstaller failed with exit code {res.returncode}", file=sys.stderr)
             return res.returncode
@@ -174,6 +180,9 @@ def main() -> int:
         shutil.rmtree(gen_stage, ignore_errors=True)
 
     expected_out = dist_dir / binary_name
+    # macOS --windowed emits dist/<name>.app; point at the inner binary
+    if sys.platform == "darwin" and not args.console:
+        expected_out = dist_dir / f"{binary_name}.app" / "Contents" / "MacOS" / binary_name
     if not expected_out.is_file():
         # PyInstaller may append .exe on Windows
         if sys.platform == "win32" and not binary_name.endswith(".exe"):
@@ -183,7 +192,14 @@ def main() -> int:
         print(f"[build] ERROR: Expected output not found at {expected_out}", file=sys.stderr)
         return 1
 
-    size_mb = expected_out.stat().st_size / (1024 * 1024)
+    bundle = None
+    if sys.platform == "darwin" and not args.console:
+        bundle = expected_out.parents[1]          # the .app folder
+        size_mb = sum(f.stat().st_size for f in bundle.rglob("*") if f.is_file()) / (1024 * 1024)
+    else:
+        size_mb = expected_out.stat().st_size / (1024 * 1024)
+        bundle = expected_out
+
     file_hash = sha256_file(expected_out)
 
     checksum_file = dist_dir / "checksums.sha256"
@@ -191,7 +207,7 @@ def main() -> int:
     with open(checksum_file, "a", encoding="utf-8") as f:
         f.write(checksum_entry)
 
-    print(f"\n[build] SUCCESS: {expected_out.name} ({size_mb:.1f} MB)")
+    print(f"\n[build] SUCCESS: {bundle.name} ({size_mb:.1f} MB)")
     print(f"[build] SHA-256: {file_hash}")
     print(f"[build] Checksum appended to {checksum_file}\n")
     return 0

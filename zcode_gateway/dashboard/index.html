@@ -1602,11 +1602,26 @@ api_key: ${esc(s.admin_key)}   # or any client key</p>
     <div class="set-wrap">
       <nav class="set-toc" aria-label="Settings sections">
         ${SETTING_SECTIONS.map(g => `<button type="button" data-act="setJump" data-id="set-${g.id}">${esc(g.title)}</button>`).join("")}
+        <button type="button" data-act="setJump" data-id="set-backup">Backup</button>
         <button type="button" data-act="setJump" data-id="set-danger">Keys</button>
       </nav>
       <div class="set-main">
         ${SETTING_SECTIONS.map(g => `<section class="card set-card" id="set-${g.id}">
           <h2>${esc(g.title)}</h2><p class="set-desc">${esc(g.desc)}</p>${g.rows.map(row).join("")}</section>`).join("")}
+        <section class="card set-card" id="set-backup">
+          <h2>Backup</h2><p class="set-desc">Export everything that matters — config, accounts, generator data and the usage database — into one zip. Restore replaces the current data with a backup.</p>
+          <div class="set-row"><div class="set-meta"><label>Export backup</label>
+            <p class="help">Writes <span class="mono">zcode-gateway-backup-&lt;date&gt;.zip</span> next to the app's config. The path is shown after export; move that file somewhere safe.</p></div>
+            <div class="set-ctl"><button class="btn btn-pri" id="bk-export" onclick="App.backupExport()">Export backup</button></div></div>
+          <div class="set-row"><div class="set-meta"><label>Restore from backup</label>
+            <p class="help">Give the full path of a backup zip. Replaces config, accounts, generator data and the usage DB. A restart applies the restored config.</p></div>
+            <div class="set-ctl"><div style="display:flex; gap:8px; align-items:center">
+              <input type="text" id="bk-path" class="mono" placeholder="/path/to/zcode-gateway-backup-….zip" spellcheck="false" style="min-width:280px" aria-label="Backup zip path">
+              <button class="btn btn-ghost btn-danger" id="bk-restore" onclick="App.backupRestore()">Restore…</button>
+            </div></div></div>
+          <div class="set-row" id="bk-result-row" style="display:none"><div class="set-meta"><label>Last result</label>
+            <p class="help mono" id="bk-result"></p></div></div>
+        </section>
         <section class="card set-card" id="set-danger">
           <h2>Keys</h2><p class="set-desc">The admin key and client keys protect this dashboard and the /v1 endpoints.</p>
           <div class="set-row"><div class="set-meta"><label>Regenerate keys</label>
@@ -1685,6 +1700,42 @@ api_key: ${esc(s.admin_key)}   # or any client key</p>
       renderSettings($("#view"));              // reload so "edited" markers reset to what is on disk
     } catch (e) {
       toast("save: " + e.message, "err");
+      if (btn) btn.disabled = false;
+    }
+  }
+  async function backupExport(){
+    const btn = $("#bk-export");
+    if (btn) btn.disabled = true;
+    try {
+      const r = await api("/admin/dash/backup/export");
+      $("#bk-result-row").style.display = "";
+      $("#bk-result").textContent = `saved: ${r.path} (${(r.size / 1048576).toFixed(1)} MB)`;
+      toast("backup saved", "ok");
+    } catch (e) {
+      toast("export: " + e.message, "err");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+  async function backupRestore(){
+    const p = ($("#bk-path").value || "").trim();
+    if (!p) { toast("enter the backup zip path first", "warn"); return; }
+    if (!(await confirmDlg("Restore this backup?",
+        "Current config, accounts, generator data and the usage DB are replaced\nby the backup. This cannot be undone. Export a fresh backup first if unsure.",
+        "Restore", true))) return;
+    const btn = $("#bk-restore");
+    if (btn) btn.disabled = true;
+    try {
+      const r = await api("/admin/dash/backup/restore", {method: "POST", body: {path: p}});
+      $("#bk-result-row").style.display = "";
+      $("#bk-result").textContent = `restored ${r.backup_created || "backup"} — ` +
+        [r.config && "config", r.dirs.length && r.dirs.join(", "), r.db && "usage db"]
+          .filter(Boolean).join(", ") +
+        (r.restart_required ? " — restart the gateway to apply" : "");
+      toast("restore done" + (r.restart_required ? " — restart to apply" : ""), "ok");
+    } catch (e) {
+      toast("restore: " + e.message, "err");
+    } finally {
       if (btn) btn.disabled = false;
     }
   }
@@ -3991,7 +4042,7 @@ api_key: ${esc(s.admin_key)}   # or any client key</p>
           setupOpen, setupClose, setupInstall,
           openRelayModal, closeRelayModal, relayDeploy, relayAddCustom, loadRelays,
           saveRelayOptions, setActiveRelay, testRelay, deleteRelay, deleteRelays, relayToggle, relayToggleAll, pxHealthRefresh,
-          settingsFilter, settingsReset, settingsJump};
+          settingsFilter, settingsReset, settingsJump, backupExport, backupRestore};
 })();
 
 // Global delegated listener: names/ids/domains must never be interpolated into

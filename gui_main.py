@@ -26,9 +26,16 @@ _mutex_handle = None
 
 
 def _exe_dir() -> Path:
-    """Folder the tool lives in (the exe's folder when frozen)."""
+    """Folder the tool lives in (the exe's folder when frozen).
+
+    A macOS .app bundle: ZcodeGateway.app/Contents/MacOS/<bin> resolves to
+    the folder holding the .app, so config/accounts land beside the bundle.
+    """
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
+        exe = Path(sys.executable).resolve()
+        if exe.parent.name == "MacOS" and exe.parent.parent.name == "Contents":
+            return exe.parent.parent.parent
+        return exe.parent
     return Path(__file__).resolve().parent
 
 
@@ -55,7 +62,8 @@ def _bootstrap_config() -> Path:
         try:
             cfg.write_text(template, encoding="utf-8")
         except OSError:
-            base = Path(os.environ.get("LOCALAPPDATA", ".")) / "ZcodeGateway"
+            base = Path(os.environ.get("LOCALAPPDATA",
+                                       str(Path.home() / "Library" / "Application Support"))) / "ZcodeGateway"
             base.mkdir(parents=True, exist_ok=True)
             cfg = base / "config.yaml"
             if not cfg.is_file():

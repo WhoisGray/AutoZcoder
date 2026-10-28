@@ -450,6 +450,51 @@ async def dash_shutdown(request: Request, key: str = Depends(admin_key)) -> dict
             "note": "the gateway process is exiting; you can close this window"}
 
 
+@router.get("/admin/dash/backup/export")
+async def backup_export(request: Request, key: str = Depends(admin_key)) -> dict:
+    """Zip the portable state (config, accounts, generator-data, usage DB)."""
+    from .backup import export_backup
+    state = get_state(request)
+    try:
+        dest = await asyncio.to_thread(export_backup, None)
+    except Exception as exc:
+        log.warning("backup export failed: %s", exc)
+        raise HTTPException(status_code=500,
+                            detail=f"export failed ({exc.__class__.__name__})") from exc
+    import platform as _pl
+    return {"path": str(dest), "size": dest.stat().st_size,
+            "folder_hint": str(dest.parent),
+            "platform": _pl.system()}
+
+
+@router.post("/admin/dash/backup/restore")
+async def backup_restore(request: Request, body: dict = Body(...),
+                         key: str = Depends(admin_key)) -> dict:
+    """Replace the portable state from a backup zip (path must be local)."""
+    from .backup import restore_backup
+    get_state(request)
+    raw = str(body.get("path") or "").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="provide the backup zip path")
+    zp = Path(raw).expanduser()
+    if not zp.is_absolute():
+        from .paths import base_dir
+        zp = base_dir() / zp
+    zp = zp.resolve()
+    if not zp.is_file() or zp.suffix.lower() != ".zip":
+        raise HTTPException(status_code=400, detail=f"not a zip file: {zp}")
+    try:
+        result = await asyncio.to_thread(restore_backup, zp)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        log.warning("backup restore failed: %s", exc)
+        raise HTTPException(status_code=500,
+                            detail=f"restore failed ({exc.__class__.__name__})") from exc
+    result["restart_required"] = bool(result.get("config") or result.get("db"))
+    return result
+
+
 @router.get("/admin/dash/update/status")
 async def update_status(request: Request, key: str = Depends(admin_key)) -> dict:
     """Cached update check result (never hits GitHub from this route)."""
@@ -949,8 +994,10 @@ def _generator(request: Request):
         gc = state.cfg.generator
         # Portable install: worker output (accounts/plans/proxies) lives beside
         # the exe in ./generator-data; a source checkout uses ZCODEAUTO's output/.
-        data_dir = (Path(sys.executable).resolve().parent / "generator-data"
-                    if getattr(sys, "frozen", False)
+        # A macOS .app bundle writes next to the bundle, not inside it.
+        _exe_dir = Path(sys.executable).resolve().parent
+        _frozen_flat = getattr(sys, "frozen", False) and _exe_dir.name != "MacOS"
+        data_dir = (_exe_dir / "generator-data" if _frozen_flat
                     else gen_dir / "output")
         mgr = GeneratorManager(gen_dir, on_account=register_account,
                                python_exe=getattr(gc, "python_exe", ""),
