@@ -1051,12 +1051,24 @@ class CatchAllMail:
         self.password = None
 
     def _pick_domain(self) -> str:
-        """Rotation across the user's configured domains (ZAI_MAIL_DOMAIN wins)."""
-        domains = [d.strip() for d in CONFIG.get('mail_domains') or [] if d.strip()]
-        if self.domain not in domains:
-            domains.insert(0, self.domain)
-        domains = [d for d in domains if d]
-        return random.choice(domains) if domains else self.domain
+        """Selection mode from the dashboard: fixed (single ZAI_MAIL_DOMAIN),
+        random (uniform over the list), weighted (per-domain weights)."""
+        raw = os.environ.get('ZAI_MAIL_DOMAIN') or ''
+        mode = os.environ.get('ZAI_MAIL_DOMAIN_MODE', '').strip().lower()
+        if ',' in raw and mode in ('random', 'weighted'):
+            domains = [d.strip() for d in raw.split(',') if d.strip()]
+            if mode == 'weighted':
+                wmap = {}
+                for pair in (os.environ.get('ZAI_MAIL_DOMAIN_WEIGHTS') or '').split(','):
+                    d, _, w = pair.strip().partition(':')
+                    try:
+                        wmap[d.strip()] = max(1, int(w))
+                    except ValueError:
+                        pass
+                weights = [wmap.get(d, 1) for d in domains]
+                return random.choices(domains, weights=weights)[0]
+            return random.choice(domains)
+        return raw or self.domain or CONFIG.get('mail_domain', '')
 
     def create_account(self) -> bool:
         if not self.domain:

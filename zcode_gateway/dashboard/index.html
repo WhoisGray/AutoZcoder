@@ -2426,22 +2426,43 @@ api_key: ${esc(s.admin_key)}   # or any client key</p>
     // step 1 body: domains
     // step 1 body — a permanent domain manager (always visible): add as many
     // domains as you want, pick which one is active, remove any of them.
-    const domainRows = doms.map(d => `
+    const domainRows = doms.map(d => {
+      const weighted = doms.length > 1 && m.selection === 'weighted';
+      const w = ((m.weights || {})[d]);
+      return `
       <div style="display:flex;align-items:center;gap:10px;margin:3px 0">
         <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer">
           <input type="radio" name="mail-dom" value="${esc(d)}" ${d===mailSel?'checked':''}
             data-act="mailSelDomain" data-id="${esc(d)}">
           <span class="mono">${esc(d)}</span>
         </label>
-        ${d===m.active?'<b style="color:var(--success,#3fb950);font-size:11px">✓ active</b>':''}
+        ${d===m.active&&m.selection!=='fixed'?'':(d===m.active?'<b style="color:var(--success,#3fb950);font-size:11px">✓ active</b>':'')}
+        ${weighted?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--faint)" title="weight — bigger = more signups on this domain">w
+          <input type="number" min="1" max="999" style="width:54px" value="${w||1}"
+            data-act="mailWeight" data-id="${esc(d)}"></span>`:''}
         <span style="font-size:11px;color:var(--faint)">
           ${(m.routing_done||[]).includes(d)?'mail routed ✓':'mail not routed yet'}</span>
         <button class="btn btn-quiet btn-sm" title="remove ${esc(d)}"
           data-act="mailRemoveOne" data-id="${esc(d)}">✕</button>
-      </div>`).join('');
+      </div>`;}).join('');
+
+    // selection mode: fixed = only the radio-selected domain, random = uniform
+    // over all listed domains, weighted = per-domain "w" boxes decide share.
+    const modeSel = m.selection === 'weighted' ? 'weighted'
+                  : m.selection === 'random' ? 'random' : 'fixed';
+    const modeRow = doms.length > 1 ? `
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 8px">
+        <span class="lbl" style="margin:0">signup email</span>
+        <select data-act="mailMode" style="width:auto;padding:2px 6px">
+          <option value="fixed" ${modeSel==='fixed'?'selected':''}>fixed — only the selected domain</option>
+          <option value="random" ${modeSel==='random'?'selected':''}>random — equal share</option>
+          <option value="weighted" ${modeSel==='weighted'?'selected':''}>weighted random</option>
+        </select>
+      </div>` : '';
 
     const s1body = `
       <div style="margin:4px 0 10px 34px">
+        ${modeRow}
         ${domainRows ? `<div style="margin-bottom:8px">${domainRows}</div>`
                      : '<div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">no domains yet — add your first below</div>'}
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -2622,7 +2643,34 @@ api_key: ${esc(s.admin_key)}   # or any client key</p>
     }
   }
 
-  function mailSelDomain(d){ mailSel = d; mailRender(); }
+  function mailSelDomain(d){
+    mailSel = d;
+    // fixed mode = "only this one" — persist the choice immediately; in the
+    // rotating modes the radio is just a highlight, weights decide the share
+    const sel = (($("#mail-steps select")||{}).value) || "fixed";
+    if (sel === "fixed")
+      api("/admin/dash/generator/mail", {method:"POST",
+        body: JSON.stringify({active: d})}).catch(e => toast(e.message));
+    mailRender();
+  }
+  async function mailModeChange(mode){
+    try {
+      await api("/admin/dash/generator/mail", {method:"POST",
+        body: JSON.stringify({selection: mode})});
+      toast(mode === "fixed" ? "only the selected domain will be used"
+            : mode === "random" ? "signups rotate equally across domains"
+            : "weighted rotation on", "ok");
+    } catch (e) { toast(e.message, "err"); }
+    mailRender();
+  }
+  async function mailWeightChange(domain, val){
+    try {
+      const cur = await api("/admin/dash/generator/mail");
+      const weights = {...(cur.weights || {}), [domain]: Math.max(1, parseInt(val, 10) || 1)};
+      await api("/admin/dash/generator/mail", {method:"POST",
+        body: JSON.stringify({weights})});
+    } catch (e) { toast(e.message, "err"); }
+  }
   async function mailAddDomain(){
     const inp = $("#mail-new-domain");
     const d = inp ? inp.value.trim() : "";
@@ -3931,7 +3979,7 @@ api_key: ${esc(s.admin_key)}   # or any client key</p>
 
   return {start, login, tab, refresh, renderAccounts, renderGenerator, renderProxyTab, renderModels, renderLogs,
           renderAnalytics, setAnalyticsHours, toggleNotify, clearNotify, pollNotify, logSearchDebounce,
-          mailRender, mailAddDomain, mailRemoveDomain, mailRemoveOne, mailSelDomain, mailSave, mailTest, mailAutoSave, mailDeploy, mailRoutingDone, pxClearLog,
+          mailRender, mailAddDomain, mailRemoveDomain, mailRemoveOne, mailSelDomain, mailSave, mailTest, mailAutoSave, mailDeploy, mailRoutingDone, mailModeChange, mailWeightChange, pxClearLog,
           genLocate, genCaptchaChanged, genCaptchaGuard, genStrategyVisibility, genAiHint,
           sortModels, filterModels, filterAccounts, syncModels, doImport, doReload, acct, acctRemove, saveSettings,
           regenKeys, clearLogs, toggleServer, copy,
@@ -3970,6 +4018,8 @@ window.addEventListener("click", e => {
 window.addEventListener("change", e => {
   const el = e.target;
   if (el && el.dataset && el.dataset.act === "mailSelDomain") App.mailSelDomain(el.dataset.id);
+  else if (el && el.dataset && el.dataset.act === "mailMode") App.mailModeChange(el.value);
+  else if (el && el.dataset && el.dataset.act === "mailWeight") App.mailWeightChange(el.dataset.id, el.value);
   else if (el && el.dataset && el.dataset.act === "relaySel") App.relayToggle(el.dataset.id, el.checked);
   else if (el && el.dataset && el.dataset.act === "relaySelAll") App.relayToggleAll(el.checked);
 });

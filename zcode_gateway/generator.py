@@ -1478,7 +1478,10 @@ class GeneratorManager:
     # ---- email system -------------------------------------------------------
 
     def _default_mail(self) -> dict:
-        return {"domains": [], "active": "", "inbox_url": "", "inbox_secret": ""}
+        return {"domains": [], "active": "", "inbox_url": "", "inbox_secret": "",
+                # selection: fixed = always `active`; random = uniform choice;
+                # weighted = per-domain weight (weights: {domain: int})
+                "selection": "fixed", "weights": {}}
 
     def _load_mail_config(self):
         try:
@@ -2194,6 +2197,22 @@ class GeneratorManager:
         if "inbox_secret" in kw and str(kw["inbox_secret"] or "").strip():
             cfg["inbox_secret"] = str(kw["inbox_secret"]).strip()
             cfg["inbox_ok"] = False       # new secret → re-verify
+        if "selection" in kw:
+            s = str(kw["selection"] or "fixed").strip().lower()
+            if s in ("fixed", "random", "weighted"):
+                cfg["selection"] = s
+        if "weights" in kw and isinstance(kw["weights"], dict):
+            w = {}
+            for d, v in kw["weights"].items():
+                d = str(d or "").strip().lower().lstrip('@')
+                if d in cfg["domains"]:
+                    try:
+                        n = max(0, int(v))
+                    except (TypeError, ValueError):
+                        continue
+                    if n:
+                        w[d] = n
+            cfg["weights"] = w
         self._save_mail_config()
         return self.mail_config()
 
@@ -2747,10 +2766,24 @@ class GeneratorManager:
                     pass
         # Legacy campaigns (100M invite / 1024 500M) are off by default.
         env["ZAI_CLAIM500"] = "1" if self.claim500 else "0"
-        # email: the user's own domains + worker inbox (public-ready setup)
+        # email: the user's own domains + worker inbox (public-ready setup).
+        # The full domain list travels with the selection mode so the child
+        # can rotate per signup (fixed = active only, random = uniform,
+        # weighted = per-domain weights from `weights`).
         m = self.mail_cfg
-        if m.get("active"):
-            env["ZAI_MAIL_DOMAIN"] = m["active"]
+        doms = [str(d).strip().lower() for d in (m.get("domains") or []) if str(d).strip()]
+        if doms:
+            sel = m.get("selection") or "fixed"
+            active = str(m.get("active") or "").strip().lower()
+            if sel == "fixed" and active in doms:
+                env["ZAI_MAIL_DOMAIN"] = active
+            else:
+                env["ZAI_MAIL_DOMAIN"] = ",".join(doms)
+                env["ZAI_MAIL_DOMAIN_MODE"] = sel
+                weights = m.get("weights") or {}
+                if sel == "weighted":
+                    pairs = [f"{d}:{int(weights.get(d, 1))}" for d in doms]
+                    env["ZAI_MAIL_DOMAIN_WEIGHTS"] = ",".join(pairs)
         if m.get("inbox_url"):
             env["ZAI_INBOX_URL"] = m["inbox_url"]
         if m.get("inbox_secret"):
