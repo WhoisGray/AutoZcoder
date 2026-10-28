@@ -1,7 +1,8 @@
 name: release
 
-# Build the single-file exe and attach it (+ SHA-256) to a GitHub Release.
-# Trigger: push a version tag, e.g.  git tag v0.4.0 && git push --tags
+# Build single-file executables for Windows, macOS, and Linux
+# and attach them (+ SHA-256) to a GitHub Release.
+# Trigger: push a version tag, e.g. git tag v0.4.0 && git push --tags
 
 on:
   push:
@@ -13,11 +14,16 @@ permissions:
 
 jobs:
   test:
-    runs-on: windows-latest
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
-      - name: Tag matches app version
-        if: github.ref_type == 'tag'
+      - name: Tag matches app version (on Windows/pwsh)
+        if: github.ref_type == 'tag' && runner.os == 'Windows'
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}".TrimStart("v")
@@ -29,38 +35,71 @@ jobs:
           }
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
-      - name: Create venv + install deps
+          python-version: "3.11"
+      - name: Install dependencies
         run: |
-          python -m venv .venv
-          .\.venv\Scripts\python -m pip install --upgrade pip
-          .\.venv\Scripts\python -m pip install -r requirements.txt -r requirements-dev.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-dev.txt
       - name: Run tests
-        run: .\.venv\Scripts\python -m pytest tests -q
+        run: python -m pytest tests -q
 
   build:
+    name: build (${{ matrix.asset_name }})
     needs: test
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset_name: ZcodeGateway.exe
+          - os: macos-latest
+            asset_name: ZcodeGateway-macos
+          - os: ubuntu-latest
+            asset_name: ZcodeGateway-linux
+
     steps:
       - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        continue-on-error: true
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
-      - name: Create venv + install build deps
+          python-version: "3.11"
+      - name: Install build dependencies
         run: |
-          python -m venv .venv
-          .\.venv\Scripts\python -m pip install --upgrade pip
-          .\.venv\Scripts\python -m pip install -r requirements.txt pyinstaller
-      - name: Build exe
-        run: .\build-exe.ps1
-      - name: Checksum
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+      - name: Build executable
+        run: python build.py --clean --name ${{ matrix.asset_name }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: dist/${{ matrix.asset_name }}
+
+  publish:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Generate unified checksums.sha256
+        working-directory: dist
         run: |
-          $h = (Get-FileHash .\dist\ZcodeGateway.exe -Algorithm SHA256).Hash.ToLower()
-          "$h  ZcodeGateway.exe" | Out-File -Encoding ascii .\dist\checksums.sha256
-      - name: Attach to release
+          chmod +x ZcodeGateway-macos ZcodeGateway-linux || true
+          sha256sum ZcodeGateway.exe ZcodeGateway-macos ZcodeGateway-linux > checksums.sha256
+          cat checksums.sha256
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/ZcodeGateway.exe
+            dist/ZcodeGateway-macos
+            dist/ZcodeGateway-linux
             dist/checksums.sha256
           generate_release_notes: true

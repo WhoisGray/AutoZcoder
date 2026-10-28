@@ -12,6 +12,10 @@ requests>=2.31,<3.0
 truststore>=0.9
 certifi
 
-# desktop shell (WebView2 window for the dashboard) — omit for headless servers
+# AES-GCM credential decryption on non-Windows platforms
+cryptography>=41.0.0; sys_platform != 'win32'
+
+# desktop shell (WebView2 on Windows, WebKit on macOS, GTK/Qt on Linux) — omit for headless servers
 pywebview>=6.0,<7.0
-pythonnet>=3.0,<4.0
+pythonnet>=3.0,<4.0; sys_platform == 'win32'
+pyobjc-framework-WebKit>=10.0; sys_platform == 'darwin'

@@ -2718,10 +2718,13 @@ class GeneratorManager:
         # the path down, otherwise claim_start can't find it and a plan that
         # demands a captcha answers 3007.
         if not env.get("ZAI_CAPTCHA_CMD"):
-            _mint_cands = [
-                Path(getattr(sys, "_MEIPASS", "")) / "captcha-mint" / "captcha-mint.exe",
-                Path(sys.executable).resolve().parent / "captcha-mint" / "captcha-mint.exe",
-            ]
+            _mint_names = ["captcha-mint", "captcha-mint.exe"] if sys.platform != "win32" else ["captcha-mint.exe"]
+            _mint_cands = []
+            for _name in _mint_names:
+                _mint_cands.extend([
+                    Path(getattr(sys, "_MEIPASS", "")) / "captcha-mint" / _name,
+                    Path(sys.executable).resolve().parent / "captcha-mint" / _name,
+                ])
             for _cand in _mint_cands:
                 try:
                     if _cand.is_file():

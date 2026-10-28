@@ -39,6 +39,15 @@ CHECKSUM_ASSET_NAME = "checksums.sha256"
 _VERSION_RE = re.compile(r"(\d+)")
 
 
+def get_platform_asset_name() -> str:
+    """Return the expected binary asset name for the current platform."""
+    if sys.platform == "darwin":
+        return "ZcodeGateway-macos"
+    if sys.platform.startswith("linux"):
+        return "ZcodeGateway-linux"
+    return "ZcodeGateway.exe"
+
+
 def parse_version(text: str) -> tuple[int, ...]:
     """'v0.3.0' / '0.3' -> (0, 3, 0) / (0, 3). Non-numeric parts are ignored."""
     return tuple(int(n) for n in _VERSION_RE.findall(text or ""))
@@ -55,11 +64,13 @@ def is_newer(latest: str, current: str) -> bool:
     return new > cur
 
 
-def pick_asset(assets: list[dict], name: str = EXE_NAME) -> dict | None:
-    """The release asset matching the exe name, else None."""
-    for asset in assets or []:
-        if asset.get("name") == name and asset.get("browser_download_url"):
-            return asset
+def pick_asset(assets: list[dict], name: str | None = None) -> dict | None:
+    """The release asset matching the binary name, else None."""
+    candidates = [name] if name else [get_platform_asset_name(), EXE_NAME]
+    for cand in candidates:
+        for asset in assets or []:
+            if asset.get("name") == cand and asset.get("browser_download_url"):
+                return asset
     return None
 
 
@@ -140,8 +151,10 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-async def _expected_sha256(http: httpx.AsyncClient, checksum_url: str) -> str:
-    """The published SHA-256 for the exe, from the release's checksums file."""
+async def _expected_sha256(http: httpx.AsyncClient, checksum_url: str,
+                           target_name: str | None = None) -> str:
+    """The published SHA-256 for the binary, from the release's checksums file."""
+    name = target_name or EXE_NAME
     try:
         resp = await http.get(checksum_url)
         resp.raise_for_status()
@@ -151,10 +164,10 @@ async def _expected_sha256(http: httpx.AsyncClient, checksum_url: str) -> str:
             "; refusing update") from exc
     for line in resp.text.splitlines():
         parts = line.strip().split()
-        if len(parts) >= 2 and parts[-1].lstrip("*") == EXE_NAME:
+        if len(parts) >= 2 and parts[-1].lstrip("*") == name:
             return parts[0]
     raise RuntimeError(
-        f"{CHECKSUM_ASSET_NAME} lists no entry for {EXE_NAME}; refusing update")
+        f"{CHECKSUM_ASSET_NAME} lists no entry for {name}; refusing update")
 
 
 async def download_update(url: str, checksum_url: str | None,
@@ -190,11 +203,12 @@ async def download_update(url: str, checksum_url: str | None,
                     fh.write(chunk)
         if target.stat().st_size < 1_000_000:
             raise RuntimeError("downloaded file is implausibly small; discarding it")
-        expected = await _expected_sha256(http, checksum_url)
+        target_name = (urlparse(url).path.split("/")[-1]) or EXE_NAME
+        expected = await _expected_sha256(http, checksum_url, target_name=target_name)
         actual = _sha256_file(target)
         if actual.lower() != expected.lower():
             raise RuntimeError(
-                f"checksum mismatch for {EXE_NAME}: expected {expected}, "
+                f"checksum mismatch for {target_name}: expected {expected}, "
                 f"got {actual}; discarding the download")
     except Exception:
         target.unlink(missing_ok=True)
@@ -228,39 +242,62 @@ def apply_update(new_exe: Path) -> None:
     if new_exe.stat().st_size < 1_000_000:
         raise RuntimeError("update file is implausibly small; refusing to apply")
     # back up the current exe so a bad new exe can be rolled back manually
-    backup = current.with_suffix(".old.exe")
+    backup = current.with_suffix(".old.exe") if (current.name.endswith(".exe") or sys.platform == "win32") else current.with_suffix(".old")
     pid = os.getpid()
-    bat = Path(tempfile.gettempdir()) / "zcodegate_update.bat"
-    bat.write_text(
-        "@echo off\r\n"
-        ":wait\r\n"
-        f"tasklist /FI \"PID eq {pid}\" /NH 2>nul | find /I \"{current.name}\" >nul\r\n"
-        "if %errorlevel%==0 (timeout /t 1 /nobreak >nul & goto wait)\r\n"
-        "rem one extra beat for the bootloader parent to release the file\r\n"
-        "timeout /t 2 /nobreak >nul\r\n"
-        # paths travel via the environment: quoting survives spaces, and the
-        # environment is Unicode-safe where an ASCII .bat embedding is not.
-        # Backup first, then swap; only relaunch when the swap actually took
-        # (the old code discarded move's result and started a dead-or-old exe).
-        'copy /y "%ZCODEGATE_TGT%" "%ZCODEGATE_BAK%" >nul\r\n'
-        'move /y "%ZCODEGATE_SRC%" "%ZCODEGATE_TGT%"\r\n'
-        "if errorlevel 1 (\r\n"
-        '  echo UPDATE SWAP FAILED - old exe kept, backup at %ZCODEGATE_BAK% >> "%ZCODEGATE_LOG%"\r\n'
-        '  start "" "%ZCODEGATE_TGT%"\r\n'
-        ") else (\r\n"
-        '  start "" "%ZCODEGATE_TGT%"\r\n'
-        ")\r\n"
-        "del \"%~f0\"\r\n",
-        encoding="ascii")
     env = dict(os.environ)
     env["ZCODEGATE_SRC"] = str(new_exe)
     env["ZCODEGATE_TGT"] = str(current)
     env["ZCODEGATE_BAK"] = str(backup)
     env["ZCODEGATE_LOG"] = str(exe_dir() / "update.log")
-    subprocess.Popen(
-        ["cmd", "/c", str(bat)],
-        env=env,
-        creationflags=(subprocess.DETACHED_PROCESS
-                       | subprocess.CREATE_NEW_PROCESS_GROUP
-                       | getattr(subprocess, "CREATE_NO_WINDOW", 0)),
-        close_fds=True)
+
+    if current.name.endswith(".exe") or sys.platform == "win32":
+        bat = Path(tempfile.gettempdir()) / "zcodegate_update.bat"
+        bat.write_text(
+            "@echo off\r\n"
+            ":wait\r\n"
+            f"tasklist /FI \"PID eq {pid}\" /NH 2>nul | find /I \"{current.name}\" >nul\r\n"
+            "if %errorlevel%==0 (timeout /t 1 /nobreak >nul & goto wait)\r\n"
+            "rem one extra beat for the bootloader parent to release the file\r\n"
+            "timeout /t 2 /nobreak >nul\r\n"
+            # paths travel via the environment: quoting survives spaces, and the
+            # environment is Unicode-safe where an ASCII .bat embedding is not.
+            # Backup first, then swap; only relaunch when the swap actually took
+            # (the old code discarded move's result and started a dead-or-old exe).
+            'copy /y "%ZCODEGATE_TGT%" "%ZCODEGATE_BAK%" >nul\r\n'
+            'move /y "%ZCODEGATE_SRC%" "%ZCODEGATE_TGT%"\r\n'
+            "if errorlevel 1 (\r\n"
+            '  echo UPDATE SWAP FAILED - old exe kept, backup at %ZCODEGATE_BAK% >> "%ZCODEGATE_LOG%"\r\n'
+            '  start "" "%ZCODEGATE_TGT%"\r\n'
+            ") else (\r\n"
+            '  start "" "%ZCODEGATE_TGT%"\r\n'
+            ")\r\n"
+            "del \"%~f0\"\r\n",
+            encoding="ascii")
+        kwargs: dict = {"close_fds": True}
+        if sys.platform == "win32":
+            kwargs["creationflags"] = (
+                getattr(subprocess, "DETACHED_PROCESS", 0)
+                | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                | getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            )
+        subprocess.Popen(
+            ["cmd", "/c", str(bat)],
+            env=env,
+            **kwargs)
+    else:
+        sh_script = Path(tempfile.gettempdir()) / "zcodegate_update.sh"
+        sh_script.write_text(
+            "#!/bin/sh\n"
+            f"while kill -0 {pid} 2>/dev/null; do sleep 1; done\n"
+            'cp -f "$ZCODEGATE_TGT" "$ZCODEGATE_BAK"\n'
+            'mv -f "$ZCODEGATE_SRC" "$ZCODEGATE_TGT"\n'
+            'chmod +x "$ZCODEGATE_TGT"\n'
+            'nohup "$ZCODEGATE_TGT" >> "$ZCODEGATE_LOG" 2>&1 &\n'
+            'rm -f "$0"\n',
+            encoding="utf-8")
+        sh_script.chmod(0o755)
+        subprocess.Popen(
+            ["/bin/sh", str(sh_script)],
+            env=env,
+            start_new_session=True,
+            close_fds=True)

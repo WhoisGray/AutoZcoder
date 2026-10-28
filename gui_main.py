@@ -73,6 +73,16 @@ def _bootstrap_config() -> Path:
 def _already_running() -> bool:
     """Session-local named mutex: True when another copy already holds it."""
     global _mutex_handle
+    if sys.platform != "win32":
+        import fcntl
+        import tempfile
+        lock_file = Path(tempfile.gettempdir()) / f"{MUTEX_NAME}.lock"
+        try:
+            _mutex_handle = open(lock_file, "w")
+            fcntl.flock(_mutex_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return False
+        except (IOError, OSError):
+            return True
     ERROR_ALREADY_EXISTS = 183
     _mutex_handle = ctypes.windll.kernel32.CreateMutexW(None, True, MUTEX_NAME)
     return ctypes.windll.kernel32.GetLastError() == ERROR_ALREADY_EXISTS
@@ -80,6 +90,9 @@ def _already_running() -> bool:
 
 def _notify(message: str) -> None:
     """Minimal message box without pulling in a GUI toolkit."""
+    if sys.platform != "win32":
+        sys.stderr.write(message + "\n")
+        return
     try:
         ctypes.windll.user32.MessageBoxW(0, message, "Zcode Gateway", 0x40)
     except Exception:
@@ -94,6 +107,8 @@ _last_gateway_origin: str | None = None
 def _fix_streams() -> None:
     """A --windowed frozen exe has no console; sys.stdout/err may be None.
     pywebview and the app log through these — give them a real file."""
+    if sys.platform != "win32":
+        return
     log_dir = os.path.join(os.environ.get("LOCALAPPDATA", "."), "ZcodeGateway")
     os.makedirs(log_dir, exist_ok=True)
     path = os.path.join(log_dir, "zcode-gateway.log")
@@ -200,6 +215,9 @@ def _offer_webview2_or_browser(url: str) -> bool:
     """WebView2 missing: offer to install it; otherwise use the browser.
 
     Returns True when the caller should keep going (browser mode)."""
+    if sys.platform != "win32":
+        webbrowser.open(url)
+        return True
     rc = ctypes.windll.user32.MessageBoxW(
         0,
         "This window needs the Microsoft WebView2 runtime, which is not installed.\n\n"
@@ -262,7 +280,10 @@ def main() -> None:
                 "Close it first, then start this one.")
         return
 
-    import webview
+    try:
+        import webview
+    except ImportError:
+        webview = None
 
     # read host/port from the same config the server will bind
     from zcode_gateway.config import load_config
@@ -275,9 +296,9 @@ def main() -> None:
 
     threading.Thread(target=_run_server, daemon=True, name="gateway").start()
     browser_fallback = False
-    if not _wait_for(url):
+    if not webview or not _wait_for(url):
         browser_fallback = True   # serve in the browser; keep the process (and the gateway thread) alive
-    elif not _webview2_available():
+    elif sys.platform == "win32" and not _webview2_available():
         # native window impossible on this machine: install prompt + browser
         browser_fallback = _offer_webview2_or_browser(url)
 
@@ -289,15 +310,31 @@ def main() -> None:
         _notify("The dashboard is running in your browser.\n\n"
                 "Keep this process (this window / terminal) open — closing "
                 "it stops the gateway.")
-        while True:
-            time.sleep(3600)
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            _shutdown_generator()
         return
 
-    webview.create_window(
-        "Zcode Gateway", url,
-        width=1280, height=800, min_size=(980, 620),
-        background_color="#0f1115", text_select=True)
-    webview.start(gui="edgechromium")
+    try:
+        webview.create_window(
+            "Zcode Gateway", url,
+            width=1280, height=800, min_size=(980, 620),
+            background_color="#0f1115", text_select=True)
+        if sys.platform == "win32":
+            webview.start(gui="edgechromium")
+        else:
+            webview.start()
+    except Exception as e:
+        print(f"[gui] native window failed ({e}), opening dashboard in browser", file=sys.stderr)
+        webbrowser.open(url)
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            _shutdown_generator()
+        return
 
     # The window closed. edgechromium/pythonnet leave non-daemon threads that
     # keep the interpreter — and with it the port and the single-instance

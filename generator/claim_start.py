@@ -78,16 +78,18 @@ def _captcha_config(log) -> dict:
 def _find_mint_exe() -> str:
     """Locate the bundled captcha-mint sidecar (frozen or source tree)."""
     here = os.path.dirname(os.path.abspath(__file__))
+    names = ["captcha-mint", "captcha-mint.exe"] if sys.platform != "win32" else ["captcha-mint.exe"]
     cands = []
     meipass = getattr(sys, "_MEIPASS", "")
-    if meipass:
-        cands.append(os.path.join(meipass, "captcha-mint", "captcha-mint.exe"))
-    exe_dir = os.path.dirname(os.path.abspath(sys.executable))
-    cands += [
-        os.path.join(exe_dir, "captcha-mint", "captcha-mint.exe"),
-        os.path.join(os.path.dirname(here), "tools", "captcha-mint", "captcha-mint.exe"),
-        os.path.join(here, "captcha-mint.exe"),
-    ]
+    for name in names:
+        if meipass:
+            cands.append(os.path.join(meipass, "captcha-mint", name))
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        cands += [
+            os.path.join(exe_dir, "captcha-mint", name),
+            os.path.join(os.path.dirname(here), "tools", "captcha-mint", name),
+            os.path.join(here, name),
+        ]
     for p in cands:
         if os.path.isfile(p):
             return p

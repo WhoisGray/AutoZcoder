@@ -8,7 +8,10 @@ def decrypt_aes_gcm(key: bytes, nonce: bytes, ciphertext: bytes, tag: bytes) -> 
         raise ValueError('Invalid ZCode credential cipher parameters')
     if sys.platform != 'win32':
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-        return AESGCM(key).decrypt(nonce, ciphertext + tag, None)
+        try:
+            return AESGCM(key).decrypt(nonce, ciphertext + tag, None)
+        except Exception as e:
+            raise ValueError(f'ZCode credential authentication failed: {e}') from e
     from ctypes import wintypes as w
     dll = c.WinDLL('bcrypt.dll')
     ptr, ulong = c.c_void_p, w.ULONG
