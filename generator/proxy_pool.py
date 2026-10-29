@@ -252,6 +252,14 @@ class _FileLock:
                 fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_RDWR)
                 os.write(fd, str(os.getpid()).encode())
                 os.close(fd)
+                # heartbeat's first utime must not wait a full interval: on a
+                # slow/throttled CI runner thread start slips past `stale` and
+                # a waiter then reads the untouched mtime as a dead holder
+                # and steals the lock mid-write.
+                try:
+                    os.utime(self.path, None)
+                except OSError:
+                    pass
                 self.held = True
                 self._beat = threading.Thread(target=self._heartbeat, daemon=True)
                 self._beat.start()
@@ -274,7 +282,7 @@ class _FileLock:
                 time.sleep(0.02)
 
     def _heartbeat(self):
-        interval = max(0.5, self.stale / 3)
+        interval = max(0.2, self.stale / 3)
         failures = 0
         while self.held:
             time.sleep(interval)
