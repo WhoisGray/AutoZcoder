@@ -185,7 +185,9 @@ async def test_pacing_gate_enforces_gap(monkeypatch):
         t0 = time.monotonic()
         await client._pace()                  # second: must wait the full 200ms gap
         elapsed = time.monotonic() - t0
-        assert elapsed >= 0.2                 # asyncio.sleep never wakes early
+        # Windows event-loop clocks can wake a few ms early — allow a small
+        # tolerance (observed 0.187 for a 0.2 gap on windows-latest).
+        assert elapsed >= 0.19                # asyncio.sleep never wakes meaningfully early
         assert elapsed < 1.0                  # and doesn't oversleep absurdly
     finally:
         await client.aclose()
