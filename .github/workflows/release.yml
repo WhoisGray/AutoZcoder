@@ -91,11 +91,20 @@ jobs:
           python -m pip install -r requirements.txt pyinstaller
       - name: Build executable
         run: python build.py --clean --name ${{ matrix.asset_name }}
+      # macOS: package the .app bundle (what PyInstaller --windowed produces)
+      # into a zip users can download; the bare inner binary is not runnable
+      # as a double-clickable app.
+      - name: Package macOS .app bundle
+        if: runner.os == 'macOS'
+        run: |
+          cd dist
+          ditto -c -k --keepParent ZcodeGateway-macos.app ZcodeGateway-macos.zip
+          rm -rf ZcodeGateway-macos
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_name }}
-          path: dist/${{ matrix.asset_name }}
+          path: dist/${{ matrix.asset_name }}*
 
   publish:
     name: publish release
@@ -111,15 +120,15 @@ jobs:
       - name: Generate unified checksums.sha256
         working-directory: dist
         run: |
-          chmod +x ZcodeGateway-macos ZcodeGateway-linux || true
-          sha256sum ZcodeGateway.exe ZcodeGateway-macos ZcodeGateway-linux > checksums.sha256
+          chmod +x ZcodeGateway-linux || true
+          sha256sum ZcodeGateway.exe ZcodeGateway-macos.zip ZcodeGateway-linux > checksums.sha256
           cat checksums.sha256
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/ZcodeGateway.exe
-            dist/ZcodeGateway-macos
+            dist/ZcodeGateway-macos.zip
             dist/ZcodeGateway-linux
             dist/checksums.sha256
           generate_release_notes: true
