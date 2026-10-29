@@ -168,17 +168,25 @@ def test_merge_anthropic_beta():
 # --------------------------------------------------------------------------- #
 
 @pytest.mark.asyncio
-async def test_pacing_gate_enforces_gap():
+async def test_pacing_gate_enforces_gap(monkeypatch):
     cfg = UpstreamConfig(base_url="https://zcode.z.ai/api/v1",
                          chat_path="/x")
     pacing = PacingConfig(enabled=True, min_gap_ms=200, max_gap_ms=200)
     client = UpstreamClient(cfg, pacing=pacing)
     try:
+        # Deterministic: pin the gap and reset the class-level clock. Before,
+        # the total wall time of both paces was measured — but the first pace
+        # waits only if a PREVIOUS pace ran <gap ago (class state), so the
+        # total could legitimately be a hair under the gap on a slow CI
+        # runner (observed 0.187 < 0.19 on Windows).
+        monkeypatch.setattr("random.uniform", lambda a, b: 0.2)
+        UpstreamClient._last_send_at = 0.0
+        await client._pace()                  # first: elapsed(huge) -> no sleep, stamps the clock
         t0 = time.monotonic()
-        await client._pace()
-        await client._pace()          # second call must wait the full gap
+        await client._pace()                  # second: must wait the full 200ms gap
         elapsed = time.monotonic() - t0
-        assert elapsed >= 0.19        # ~200ms gap (tolerance for timer slop)
+        assert elapsed >= 0.2                 # asyncio.sleep never wakes early
+        assert elapsed < 1.0                  # and doesn't oversleep absurdly
     finally:
         await client.aclose()
 
