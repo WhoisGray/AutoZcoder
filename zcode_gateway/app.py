@@ -111,7 +111,7 @@ async def lifespan(app: FastAPI):
     if update_repo in getattr(cfg.update, "legacy_repos", ()):
         # config written before the repo rename: follow the current feed so
         # existing installs receive updates without a manual config edit
-        update_repo = "B3hnamR/AutoZcoder"
+        update_repo = "WhoisGray/AutoZcoder"
     updater = UpdateChecker(update_repo, __version__,
                             enabled=cfg.update.enabled,
                             interval_hours=cfg.update.interval_hours)
@@ -135,7 +135,7 @@ async def lifespan(app: FastAPI):
     if cfg.pool.balance_poll_seconds > 0:
         tasks.append(asyncio.create_task(tokens.balance_loop(), name="balance-poll"))
 
-    log.info("zcode gateway %s up — %d account(s), strategy=%s — Coded by @B3hnamR",
+    log.info("zcode gateway %s up — %d account(s), strategy=%s — Coded by @WhoisGray",
              __version__, len(accounts), cfg.pool.strategy)
 
     try:

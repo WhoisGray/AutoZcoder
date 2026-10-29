@@ -146,7 +146,7 @@ class UpdateConfig(BaseModel):
     # on by default: users get the update badge automatically. Set false only
     # to run fully offline.
     enabled: bool = True
-    repo: str = "B3hnamR/AutoZcoder"     # GitHub releases feed
+    repo: str = "WhoisGray/AutoZcoder"     # GitHub releases feed
     interval_hours: float = 6.0
     # legacy repos this tool shipped under before the rename; a config that
     # still points at one is migrated to the current repo at runtime

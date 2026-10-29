@@ -19,7 +19,7 @@ from pathlib import Path
 
 # Same name the Tkinter build used, so the old and new exe are mutually
 # exclusive (they share the port). Session-local: no Local\ prefix needed.
-MUTEX_NAME = "ZcodeGatewayByB3hnamR-SingleInstance"
+MUTEX_NAME = "ZcodeGatewayByWhoisGray-SingleInstance"
 DASH_PATH = "/dash"
 
 _mutex_handle = None

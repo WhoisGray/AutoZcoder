@@ -50,7 +50,7 @@ store:
   sqlite_path: ./gateway.db
 update:
   enabled: true    # update badge in the dashboard; set false for fully offline
-  repo: B3hnamR/AutoZcoder
+  repo: WhoisGray/AutoZcoder
 generator:
   enabled: false
   zcodeauto_dir: ""     # '' = auto-detect; or set the generator folder (has main.py)

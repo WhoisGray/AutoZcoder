@@ -83,7 +83,7 @@ def set_output_dir(path: str):
 _resolve_paths()
 
 KICKVIEW_SOURCES = os.environ.get('KICKVIEW_SOURCES', r'D:\JB\kickview\data\sources.txt')
-SOURCES_URL = 'https://raw.githubusercontent.com/B3hnamR/kickview/main/data/sources.txt'
+SOURCES_URL = 'https://raw.githubusercontent.com/WhoisGray/kickview/main/data/sources.txt'
 
 DEFAULT_SOURCES = [
     ('http',   'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=all&ssl=all&anonymity=all'),

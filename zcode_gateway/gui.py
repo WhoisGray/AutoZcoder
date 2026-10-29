@@ -8,7 +8,7 @@ field, refresh tokens, watch the load balancing, and read live stats.
     python -m zcode_gateway.gui
     ZcodeGateway.exe                (frozen build)
 
-Theme: dark + purple. Branding: "Zcode Gateway, Coded by @B3hnamR".
+Theme: dark + purple. Branding: "Zcode Gateway, Coded by @WhoisGray".
 """
 
 from __future__ import annotations
@@ -34,8 +34,8 @@ from .accounts_dir import parse_snapshot, write_snapshot
 from .zcode_detect import ZCODE_DOWNLOAD_URL, detect_zcode, jwt_claims
 from .client_sync import inspect_kilo, sync_kilo
 
-TELEGRAM_URL = "https://t.me/B3hnamR"
-BRAND_TITLE = "Zcode Gateway, Coded by @B3hnamR"
+TELEGRAM_URL = "https://t.me/whois_Gray"
+BRAND_TITLE = "Zcode Gateway, Coded by @WhoisGray"
 
 # --------------------------------------------------------------------------- #
 # theme: modern dark — neutral charcoal surfaces, single violet accent
@@ -351,7 +351,7 @@ def _default_config_yaml() -> str:
         "gw-local-1", f"gw-client-{secrets.token_hex(8)}")
 
 
-DEFAULT_CONFIG_YAML = 'server:\n  host: 127.0.0.1\n  port: 8788\n  require_client_key: true\n  admin_key: gw-admin-local\n  client_keys:\n    - key: gw-local-1\n      name: local\nupstream:\n  base_url: https://zcode.z.ai/api/v1\n  chat_path: /zcode-plan/anthropic/v1/messages\n  timeout_connect: 15\n  timeout_read: 600\n  max_attempts: 3\npool:\n  strategy: drain_first\n  cooldown_seconds: 30\n  max_in_flight_per_account: 4\n  acquire_wait_seconds: 5\n  balance_poll_seconds: 60\naccounts:\n  source: accounts_dir\n  providers_json: "~/.zcode/v2/credentials.json"\n  dir: ./accounts\n  pool_file: ./pool.json\nmodels:\n  aliases:\n    glm-5.3: GLM-5.3\n    glm-5.3-flash: GLM-5.3-Flash\n  default: GLM-5.3-Flash\n  default_anthropic: GLM-5.3\n  default_max_tokens: 128000\n  default_effort: high\n  pacing:\n    enabled: true\n    min_gap_ms: 150\n    max_gap_ms: 400\n  auto_free_fallback:\n    enabled: false\n    chain: [GLM-5.3, GLM-5.3-Flash]\nlogging:\n  level: INFO\n  capture: false\n  capture_dir: ./logs\nstore:\n  sqlite_path: ./gateway.db\nupdate:\n  enabled: false\n  repo: B3hnamR/AutoZcoder\ngenerator:\n  enabled: false\n  zcodeauto_dir: ""\n  python_exe: ""\n  captcha: "manual"\n  headless: false\n  claim: true\n  invite_code: "MT9GNDQ8"\n  socks_only: true\n  proxy_types: "socks"\n'
+DEFAULT_CONFIG_YAML = 'server:\n  host: 127.0.0.1\n  port: 8788\n  require_client_key: true\n  admin_key: gw-admin-local\n  client_keys:\n    - key: gw-local-1\n      name: local\nupstream:\n  base_url: https://zcode.z.ai/api/v1\n  chat_path: /zcode-plan/anthropic/v1/messages\n  timeout_connect: 15\n  timeout_read: 600\n  max_attempts: 3\npool:\n  strategy: drain_first\n  cooldown_seconds: 30\n  max_in_flight_per_account: 4\n  acquire_wait_seconds: 5\n  balance_poll_seconds: 60\naccounts:\n  source: accounts_dir\n  providers_json: "~/.zcode/v2/credentials.json"\n  dir: ./accounts\n  pool_file: ./pool.json\nmodels:\n  aliases:\n    glm-5.3: GLM-5.3\n    glm-5.3-flash: GLM-5.3-Flash\n  default: GLM-5.3-Flash\n  default_anthropic: GLM-5.3\n  default_max_tokens: 128000\n  default_effort: high\n  pacing:\n    enabled: true\n    min_gap_ms: 150\n    max_gap_ms: 400\n  auto_free_fallback:\n    enabled: false\n    chain: [GLM-5.3, GLM-5.3-Flash]\nlogging:\n  level: INFO\n  capture: false\n  capture_dir: ./logs\nstore:\n  sqlite_path: ./gateway.db\nupdate:\n  enabled: false\n  repo: WhoisGray/AutoZcoder\ngenerator:\n  enabled: false\n  zcodeauto_dir: ""\n  python_exe: ""\n  captcha: "manual"\n  headless: false\n  claim: true\n  invite_code: "MT9GNDQ8"\n  socks_only: true\n  proxy_types: "socks"\n'
 
 
 
@@ -742,7 +742,7 @@ class App(tk.Tk):
         btxt.pack(side="left")
         ttk.Label(btxt, text="Zcode Gateway", style="PanelTitle.TLabel",
                   font=F_H1).pack(anchor="w")
-        link = ttk.Label(btxt, text="Coded by @B3hnamR  \u00b7  t.me/B3hnamR",
+        link = ttk.Label(btxt, text="Coded by @WhoisGray  \u00b7  t.me/whois_Gray",
                          style="PanelLink.TLabel", font=F_SMALL)
         link.pack(anchor="w", pady=(2, 0))
         link.bind("<Button-1>", lambda e: webbrowser.open(TELEGRAM_URL))
@@ -868,8 +868,8 @@ class App(tk.Tk):
                    style="Ghost.TButton",
                    command=lambda: webbrowser.open(ZCODE_DOWNLOAD_URL)).pack(
                        side="left", padx=8)
-        ttk.Label(btns_ob, text="Coded by @B3hnamR  \u00b7  "
-                  "t.me/B3hnamR", style="CardLink.TLabel").pack(
+        ttk.Label(btns_ob, text="Coded by @WhoisGray  \u00b7  "
+                  "t.me/whois_Gray", style="CardLink.TLabel").pack(
                       side="left", padx=8)
 
         # tree card: tree + scrollbar packed together

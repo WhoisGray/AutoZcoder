@@ -15,8 +15,8 @@ VSVersionInfo(
   kids=[
     StringFileInfo([
       StringTable('040904B0', [
-        StringStruct('CompanyName', '@B3hnamR'),
-        StringStruct('FileDescription', 'Zcode Gateway, Coded by @B3hnamR'),
+        StringStruct('CompanyName', '@WhoisGray'),
+        StringStruct('FileDescription', 'Zcode Gateway, Coded by @WhoisGray'),
         StringStruct('FileVersion', '1.2.7.0'),
         StringStruct('InternalName', 'ZcodeGateway'),
         StringStruct('LegalCopyright', 'Personal tool. Zcode is a trademark of its owner.'),

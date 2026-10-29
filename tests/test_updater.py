@@ -77,7 +77,7 @@ def _release(tag="v0.4.0", with_asset=True, with_checksum=True,
                        "browser_download_url": checksum_url})
     return {
         "tag_name": tag,
-        "html_url": "https://github.com/B3hnamR/ZcodeGate/releases/tag/" + tag,
+        "html_url": "https://github.com/WhoisGray/AutoZcoder/releases/tag/" + tag,
         "body": "what changed",
         "published_at": "2026-09-22T00:00:00Z",
         "assets": assets,
@@ -85,7 +85,7 @@ def _release(tag="v0.4.0", with_asset=True, with_checksum=True,
 
 
 async def test_check_reports_newer_release():
-    checker = UpdateChecker("B3hnamR/ZcodeGate", "0.3.0",
+    checker = UpdateChecker("WhoisGray/AutoZcoder", "0.3.0",
                             client=_StubClient(_release()))
     status = await checker.check()
     assert status["update_available"] is True
@@ -96,19 +96,19 @@ async def test_check_reports_newer_release():
 
 
 async def test_check_no_update_when_current():
-    checker = UpdateChecker("B3hnamR/ZcodeGate", "0.4.0",
+    checker = UpdateChecker("WhoisGray/AutoZcoder", "0.4.0",
                             client=_StubClient(_release()))
     assert (await checker.check())["update_available"] is False
 
 
 async def test_check_no_update_without_exe_asset():
-    checker = UpdateChecker("B3hnamR/ZcodeGate", "0.3.0",
+    checker = UpdateChecker("WhoisGray/AutoZcoder", "0.3.0",
                             client=_StubClient(_release(with_asset=False)))
     assert (await checker.check())["update_available"] is False
 
 
 async def test_check_no_automatic_update_without_checksum_asset():
-    checker = UpdateChecker("B3hnamR/ZcodeGate", "0.3.0",
+    checker = UpdateChecker("WhoisGray/AutoZcoder", "0.3.0",
                             client=_StubClient(_release(with_checksum=False)))
     status = await checker.check()
     assert status["update_available"] is False
@@ -116,7 +116,7 @@ async def test_check_no_automatic_update_without_checksum_asset():
 
 
 async def test_check_404_first_release_is_not_an_error():
-    checker = UpdateChecker("B3hnamR/ZcodeGate", "0.3.0",
+    checker = UpdateChecker("WhoisGray/AutoZcoder", "0.3.0",
                             client=_StubClient({}, status=404))
     status = await checker.check()
     assert status["update_available"] is False
@@ -131,7 +131,7 @@ async def test_check_failure_is_cached_not_raised():
         async def aclose(self):
             return None
 
-    checker = UpdateChecker("B3hnamR/ZcodeGate", "0.3.0", client=_Boom())
+    checker = UpdateChecker("WhoisGray/AutoZcoder", "0.3.0", client=_Boom())
     status = await checker.check()
     assert status["update_available"] is False
     assert status["error"] == "ConnectError"
@@ -145,7 +145,7 @@ async def test_disabled_checker_never_calls_network():
         async def aclose(self):
             return None
 
-    checker = UpdateChecker("B3hnamR/ZcodeGate", "0.3.0", enabled=False,
+    checker = UpdateChecker("WhoisGray/AutoZcoder", "0.3.0", enabled=False,
                             client=_Explode())
     status = await checker.check()
     assert status["update_available"] is False
@@ -181,8 +181,8 @@ def test_routes_registered_and_auth_gated():
 # --------------------------------------------------------------------------- #
 
 EXE_BYTES = b"MZ" + b"x" * 1_000_001        # > 1 MB: passes the size sanity check
-EXE_URL = "https://github.com/B3hnamR/ZcodeGate/releases/download/v9/ZcodeGateway.exe"
-CHECKSUM_URL = ("https://github.com/B3hnamR/ZcodeGate/releases/download/v9/"
+EXE_URL = "https://github.com/WhoisGray/AutoZcoder/releases/download/v9/ZcodeGateway.exe"
+CHECKSUM_URL = ("https://github.com/WhoisGray/AutoZcoder/releases/download/v9/"
                 "checksums.sha256")
 
 
@@ -211,7 +211,7 @@ def frozen_download(tmp_path, monkeypatch):
 
 async def test_check_exposes_the_checksum_asset_url():
     rel = _release(checksum_url=CHECKSUM_URL)
-    checker = UpdateChecker("B3hnamR/ZcodeGate", "0.3.0",
+    checker = UpdateChecker("WhoisGray/AutoZcoder", "0.3.0",
                             client=_StubClient(rel))
     status = await checker.check()
     assert status["update_available"] is True
