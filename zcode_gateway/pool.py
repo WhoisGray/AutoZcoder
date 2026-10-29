@@ -48,6 +48,7 @@ class Account:
 
     state: AccountState = AccountState.READY
     last_used: float = 0.0
+    _use_seq: int = 0              # strictly-increasing pick counter (tie-break)
     in_flight: int = 0
     error_count: int = 0
     cooldown_until: float = 0.0
@@ -275,6 +276,10 @@ class Router:
     def __init__(self, cfg: PoolConfig) -> None:
         self.cfg = cfg
         self._rr_index = 0
+        # strictly-increasing stamp for least_in_flight / LRU tie-breaks.
+        # time.time() ties on Windows' coarse clock and min() then keeps list
+        # order — rotation silently degenerated to always-first on CI.
+        self._use_counter = 0
 
     def candidates(self, accounts: Iterable[Account], exclude: set[str],
                    require_paid: bool = False, model: str | None = None) -> list[Account]:
@@ -331,12 +336,12 @@ class Router:
             self._rr_index = (self._rr_index + 1) % len(under_cap)
             return acc
         if strategy == "least_recently_used":
-            return min(under_cap, key=lambda a: a.last_used)
+            return min(under_cap, key=lambda a: (a._use_seq, a.last_used))
         if strategy == "drain_first":
             # candidates() already ordered the pool; keep draining the head.
             return under_cap[0]
         # least_in_flight (default) and quota_aware fallback
-        return min(under_cap, key=lambda a: (a.in_flight, a.last_used))
+        return min(under_cap, key=lambda a: (a.in_flight, a._use_seq, a.last_used))
 
     def acquire(self, accounts: list[Account], exclude: set[str],
                 require_paid: bool = False, model: str | None = None) -> Account | None:
@@ -344,7 +349,13 @@ class Router:
         if acc is not None:
             acc.in_flight += 1
             acc.last_used = time.time()
+            self.stamp_use(acc)
         return acc
+
+    def stamp_use(self, acc: Account) -> None:
+        """Monotonic pick stamp: strictly increasing even when time.time() ties."""
+        self._use_counter += 1
+        acc._use_seq = self._use_counter
 
 
 # --------------------------------------------------------------------------- #
@@ -508,6 +519,7 @@ class PoolManager:
                           account.in_flight, cap, account.id)
             account.in_flight += 1
             account.last_used = time.time()
+            self._router.stamp_use(account)
             self._slot_gen += 1
 
     async def cap_model(self, account: Account, model: str,
