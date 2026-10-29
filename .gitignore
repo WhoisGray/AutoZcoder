@@ -60,3 +60,4 @@ Desktop.ini
 # captcha mint sidecar (built, not committed)
 tools/captcha-mint/node_modules/
 tools/captcha-mint/captcha-mint.exe
+zcode-gateway-backup-*.zip
