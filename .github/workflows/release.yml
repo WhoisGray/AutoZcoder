@@ -99,12 +99,19 @@ jobs:
         run: |
           cd dist
           ditto -c -k --keepParent ZcodeGateway-macos.app ZcodeGateway-macos.zip
-          rm -rf ZcodeGateway-macos
+          rm -rf ZcodeGateway-macos ZcodeGateway-macos.app
+      - name: Upload artifact (macOS .app zip)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZcodeGateway-macos
+          path: dist/ZcodeGateway-macos.zip
       - name: Upload artifact
+        if: runner.os != 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_name }}
-          path: dist/${{ matrix.asset_name }}*
+          path: dist/${{ matrix.asset_name }}
 
   publish:
     name: publish release
