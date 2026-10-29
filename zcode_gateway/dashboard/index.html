@@ -1622,12 +1622,12 @@ api_key: ${esc(s.admin_key)}   # or any client key</p>
         ${SETTING_SECTIONS.map(g => `<section class="card set-card" id="set-${g.id}">
           <h2>${esc(g.title)}</h2><p class="set-desc">${esc(g.desc)}</p>${g.rows.map(row).join("")}</section>`).join("")}
         <section class="card set-card" id="set-backup">
-          <h2>Backup</h2><p class="set-desc">Export everything that matters — config, accounts, generator data and the usage database — into one zip. Restore replaces the current data with a backup.</p>
+          <h2>Backup</h2><p class="set-desc">Export everything that matters — config, accounts, email domains + mail-worker secret, relay workers, proxy pool, generator state and the usage database — into one zip. Restore replaces the current data with a backup.</p>
           <div class="set-row"><div class="set-meta"><label>Export backup</label>
-            <p class="help">Writes <span class="mono">zcode-gateway-backup-&lt;date&gt;.zip</span> next to the app's config. The path is shown after export; move that file somewhere safe.</p></div>
+            <p class="help">Writes <span class="mono">zcode-gateway-backup-&lt;date&gt;.zip</span> next to the app's config. Includes your mail domains and the worker inbox secret — keep the file private. The path is shown after export.</p></div>
             <div class="set-ctl"><button class="btn btn-pri" id="bk-export" onclick="App.backupExport()">Export backup</button></div></div>
           <div class="set-row"><div class="set-meta"><label>Restore from backup</label>
-            <p class="help">Give the full path of a backup zip. Replaces config, accounts, generator data and the usage DB. A restart applies the restored config.</p></div>
+            <p class="help">Give the full path of a backup zip. Replaces config, accounts, mail domains + worker secret, relays, proxy pool and the usage DB. A restart applies the restored config.</p></div>
             <div class="set-ctl"><div style="display:flex; gap:8px; align-items:center">
               <input type="text" id="bk-path" class="mono" placeholder="/path/to/zcode-gateway-backup-….zip" spellcheck="false" style="min-width:280px" aria-label="Backup zip path">
               <button class="btn btn-ghost btn-danger" id="bk-restore" onclick="App.backupRestore()">Restore…</button>
@@ -1741,9 +1741,10 @@ api_key: ${esc(s.admin_key)}   # or any client key</p>
     try {
       const r = await api("/admin/dash/backup/restore", {method: "POST", body: {path: p}});
       $("#bk-result-row").style.display = "";
-      $("#bk-result").textContent = `restored ${r.backup_created || "backup"} — ` +
-        [r.config && "config", r.dirs.length && r.dirs.join(", "), r.db && "usage db"]
-          .filter(Boolean).join(", ") +
+      const parts = [r.config && "config", r.dirs.length && r.dirs.join(", "), r.db && "usage db",
+                     r.mail && "mail domains+secret", r.relays && "relay workers"]
+        .filter(Boolean).join(", ");
+      $("#bk-result").textContent = `restored ${r.backup_created || "backup"} — ${parts}` +
         (r.restart_required ? " — restart the gateway to apply" : "");
       toast("restore done" + (r.restart_required ? " — restart to apply" : ""), "ok");
     } catch (e) {
