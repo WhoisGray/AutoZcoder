@@ -96,8 +96,8 @@ def main() -> int:
         # macOS: a windowed build produces a proper .app bundle (Dock icon,
         # no terminal window). icns only applies to the bundle; fall back to
         # the shared .ico for a bare-binary console build.
-        if sys.platform == "darwin":
-            mode = ["--windowed"] if not args.console else ["--console"]
+        mode = ["--windowed"] if not args.console else ["--console"]
+
         icon_args: list[str] = []
         icns_path = HERE / "assets" / "zcode.icns"
         icon_path = (icns_path if sys.platform == "darwin" and icns_path.is_file()
