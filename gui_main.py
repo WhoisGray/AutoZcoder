@@ -33,8 +33,10 @@ def _exe_dir() -> Path:
     """
     if getattr(sys, "frozen", False):
         exe = Path(sys.executable).resolve()
+        # ZcodeGateway.app/Contents/MacOS/<bin> → the folder the .app sits in,
+        # so config/accounts/generator-data land beside the bundle.
         if exe.parent.name == "MacOS" and exe.parent.parent.name == "Contents":
-            return exe.parent.parent.parent
+            return exe.parent.parent.parent.parent
         return exe.parent
     return Path(__file__).resolve().parent
 

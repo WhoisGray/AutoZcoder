@@ -18,11 +18,11 @@ from pathlib import Path
 def app_dir() -> Path:
     if getattr(sys, "frozen", False):
         exe = Path(sys.executable).resolve()
-        # macOS .app bundle: ZcodeGateway.app/Contents/MacOS/<bin> — data
-        # lives next to the bundle, not inside it (a .app in ~/Applications
-        # is not writable; base_dir() falls back below when it is not).
+        # macOS .app bundle: ZcodeGateway.app/Contents/MacOS/<bin> — the
+        # BUNDLE's parent (so config/accounts/generator-data land beside the
+        # .app, not inside it; inside is wiped on reinstall).
         if exe.parent.name == "MacOS" and exe.parent.parent.name == "Contents":
-            return exe.parent.parent.parent
+            return exe.parent.parent.parent.parent
         return exe.parent
     return Path(__file__).resolve().parent.parent
 

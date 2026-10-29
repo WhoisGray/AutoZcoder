@@ -992,13 +992,20 @@ def _generator(request: Request):
 
         from .generator import GeneratorManager, claim_result_landed
         gc = state.cfg.generator
-        # Portable install: worker output (accounts/plans/proxies) lives beside
-        # the exe in ./generator-data; a source checkout uses ZCODEAUTO's output/.
-        # A macOS .app bundle writes next to the bundle, not inside it.
-        _exe_dir = Path(sys.executable).resolve().parent
-        _frozen_flat = getattr(sys, "frozen", False) and _exe_dir.name != "MacOS"
-        data_dir = (_exe_dir / "generator-data" if _frozen_flat
-                    else gen_dir / "output")
+        # Worker output (accounts/plans/proxies/mail config) must live in a
+        # STABLE, writable place that backup/restore also uses:
+        # - frozen flat exe (Windows): beside the exe in ./generator-data
+        # - macOS .app bundle: beside the bundle (base_dir()/generator-data) —
+        #   gen_dir falls inside PyInstaller's _MEIPASS temp dir, which is
+        #   wiped at exit; anything written there (mail domains, worker
+        #   secret, pool) never comes back after a restart or restore.
+        # - source checkout: the generator's own output/
+        from .paths import base_dir as _base_dir
+        if getattr(sys, "frozen", False):
+            data_dir = _base_dir() / "generator-data"
+        else:
+            data_dir = gen_dir / "output"
+        data_dir.mkdir(parents=True, exist_ok=True)
         mgr = GeneratorManager(gen_dir, on_account=register_account,
                                python_exe=getattr(gc, "python_exe", ""),
                                data_dir=data_dir)
