@@ -22,17 +22,37 @@ jobs:
         os: [windows-latest, macos-latest, ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
-      - name: Tag matches app version (on Windows/pwsh)
-        if: github.ref_type == 'tag' && runner.os == 'Windows'
-        shell: pwsh
+      # The TAG is the source of truth. Instead of failing when the tagged
+      # commit has a stale __version__, sync the version files to the tag so
+      # the build/exe properties always match the release you pushed.
+      - name: Sync version files to tag (on tag push)
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
-          $tag = "${{ github.ref_name }}".TrimStart("v")
-          $line = Select-String -Path zcode_gateway\__init__.py -Pattern '__version__ = "([^"]+)"'
-          if (-not $line) { throw "no __version__ found in zcode_gateway/__init__.py" }
-          $ver = $line.Matches[0].Groups[1].Value
-          if ($tag -ne $ver) {
-            throw "tag v$tag does not match __version__ $ver - bump zcode_gateway/__init__.py (and tools/exe_version.txt) before tagging"
-          }
+          TAG="${TAG#v}"
+          echo "release version: $TAG"
+          TAG="$TAG" python - <<'EOF'
+          import os, re, pathlib
+          tag = os.environ["TAG"]
+          init = pathlib.Path("zcode_gateway/__init__.py")
+          src = init.read_text(encoding="utf-8")
+          src, n1 = re.subn(r'__version__ = "[^"]+"', f'__version__ = "{tag}"', src)
+          assert n1 == 1, "no __version__ line in zcode_gateway/__init__.py"
+          init.write_text(src, encoding="utf-8")
+
+          ver = pathlib.Path("tools/exe_version.txt")
+          if ver.is_file():
+              s = ver.read_text(encoding="utf-8")
+              parts = (tag.split(".") + ["0", "0", "0"])[:3]
+              quad = f"({parts[0]}, {parts[1]}, {parts[2]}, 0)"
+              dotted = f"{parts[0]}.{parts[1]}.{parts[2]}.0"
+              s = re.sub(r"\(\d+, \d+, \d+, 0\)", quad, s)
+              s = re.sub(r"\d+\.\d+\.\d+\.0", dotted, s)
+              ver.write_text(s, encoding="utf-8")
+          print("version files synced to", tag)
+          EOF
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
