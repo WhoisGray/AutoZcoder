@@ -36,3 +36,14 @@ jobs:
       - name: Syntax check generator package
         run: |
           python -m py_compile generator/main.py generator/invite_claim.py generator/captcha_solver.py generator/proxy_pool.py generator/fingerprint.py generator/claim100.py
+
+  rewrite:
+    name: rewrite node tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Coordinator, protocol, pool, and gateway tests
+        run: npm test

@@ -1,0 +1,461 @@
+# Tasks
+
+```yaml
+id: AZC-001
+title: "Repository discovery and feature inventory"
+phase: 0
+description: "Inspect the Python gateway, generator, tests, and docs. Write FEATURE_INVENTORY.md from source, not from the README alone."
+priority: high
+status: DONE
+owner: null
+depends_on: []
+allowed_paths: ["docs/rewrite/FEATURE_INVENTORY.md"]
+acceptance_criteria: ["FEATURE_INVENTORY.md lists each feature group with source files and a status"]
+test_commands: ["node tools/coordinator/board.mjs status"]
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: f06d5ff
+attempts: 1
+lease_expires_at: null
+created_at: 1793433286344
+updated_at: 1793433286667
+blocking_reason: null
+tests_passed: true
+```
+
+```yaml
+id: AZC-002
+title: "Record the original offline test baseline"
+phase: 0
+description: "Run the existing pytest suite and record pass, fail, and skip counts without inventing results."
+priority: high
+status: DONE
+owner: null
+depends_on: []
+allowed_paths: ["docs/rewrite/"]
+acceptance_criteria: ["PERFORMANCE_BASELINE.md or the audit records the actual pytest summary"]
+test_commands: [".venv/bin/python -m pytest tests -q --tb=no"]
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: f06d5ff
+attempts: 1
+lease_expires_at: null
+created_at: 1793433286344
+updated_at: 1793433286994
+blocking_reason: null
+tests_passed: true
+```
+
+```yaml
+id: AZC-003
+title: "Architecture, compatibility, security, and roadmap documents"
+phase: 0
+description: "Write the Phase 0 audit set from inspected behavior."
+priority: high
+status: DONE
+owner: null
+depends_on: ["AZC-001"]
+allowed_paths: ["docs/rewrite/"]
+acceptance_criteria: ["docs/rewrite contains the required audit files"]
+test_commands: ["test -f docs/rewrite/ARCHITECTURE_AUDIT.md"]
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: f06d5ff
+attempts: 1
+lease_expires_at: null
+created_at: 1793433286344
+updated_at: 1793433287650
+blocking_reason: null
+tests_passed: true
+```
+
+```yaml
+id: AZC-010
+title: "SQLite task coordinator with exclusive leases"
+phase: 1
+description: "Authoritative board in .agent/runtime/board.db with transactional claim, heartbeat, and expiry."
+priority: high
+status: DONE
+owner: null
+depends_on: []
+allowed_paths: ["tools/coordinator/",".agent/",".gitignore"]
+acceptance_criteria: ["A second owner cannot claim a live lease","Expired leases return to READY and are not marked DONE"]
+test_commands: ["node --experimental-strip-types --test tools/coordinator/board.test.mjs"]
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: f06d5ff
+attempts: 1
+lease_expires_at: null
+created_at: 1793433286344
+updated_at: 1793433287334
+blocking_reason: null
+tests_passed: true
+```
+
+```yaml
+id: AZC-011
+title: "Crash-recovery protocol and markdown snapshots"
+phase: 1
+description: "Snapshot BOARD, TASKS, STATE, and RESUME. Recover expired leases idempotently."
+priority: high
+status: DONE
+owner: null
+depends_on: ["AZC-010"]
+allowed_paths: ["tools/coordinator/",".agent/"]
+acceptance_criteria: ["RESUME.md contains the required fields","release-expired does not mark tasks DONE"]
+test_commands: ["node --experimental-strip-types --test tools/coordinator/board.test.mjs"]
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: f06d5ff
+attempts: 1
+lease_expires_at: null
+created_at: 1793433286344
+updated_at: 1793433287964
+blocking_reason: null
+tests_passed: true
+```
+
+```yaml
+id: AZC-020
+title: "TypeScript workspace layout"
+phase: 2
+description: "Monorepo for the Electron, Vue, and Node rewrite beside the untouched Python tree."
+priority: high
+status: DONE
+owner: null
+depends_on: ["AZC-010"]
+allowed_paths: ["package.json","tsconfig.json","apps/","packages/"]
+acceptance_criteria: ["packages and apps exist and the Python tree is still present"]
+test_commands: ["test -f package.json","test -f zcode_gateway/app.py"]
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: f06d5ff
+attempts: 1
+lease_expires_at: null
+created_at: 1793433286344
+updated_at: 1793433288455
+blocking_reason: null
+tests_passed: true
+```
+
+```yaml
+id: AZC-021
+title: "Port protocol translation and upstream body builder"
+phase: 2
+description: "TypeScript port of Anthropic/OpenAI translation, ZCode body construction, and error classification."
+priority: high
+status: DONE
+owner: null
+depends_on: ["AZC-020"]
+allowed_paths: ["packages/protocols/"]
+acceptance_criteria: ["Translation tests cover the legacy translate cases and body rules"]
+test_commands: ["node --experimental-strip-types --test packages/protocols/src/translate.test.ts"]
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: f06d5ff
+attempts: 1
+lease_expires_at: null
+created_at: 1793433286344
+updated_at: 1793433288921
+blocking_reason: null
+tests_passed: true
+```
+
+```yaml
+id: AZC-022
+title: "Account pool, snapshot loader, and usage store"
+phase: 2
+description: "Port selection strategies, accounts/*.txt loading, and the usage SQLite schema."
+priority: high
+status: DONE
+owner: null
+depends_on: ["AZC-020"]
+allowed_paths: ["packages/pool/","packages/database/"]
+acceptance_criteria: ["Pool and store tests pass, including drain-first and malformed snapshots"]
+test_commands: ["node --experimental-strip-types --test packages/pool/src/pool.test.ts packages/database/src/store.test.ts"]
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: f06d5ff
+attempts: 1
+lease_expires_at: null
+created_at: 1793433286344
+updated_at: 1793433289248
+blocking_reason: null
+tests_passed: true
+```
+
+```yaml
+id: AZC-023
+title: "Node gateway HTTP surface with mock upstream"
+phase: 3
+description: "OpenAI and Anthropic routes, auth, health, streaming translation, overload retry before output, and explicit refusal of account-generation routes."
+priority: high
+status: DONE
+owner: null
+depends_on: ["AZC-021","AZC-022"]
+allowed_paths: ["apps/gateway/"]
+acceptance_criteria: ["Contract tests pass against an in-process mock upstream","Claim and generator routes return 410"]
+test_commands: ["node --experimental-strip-types --test apps/gateway/src/server.test.ts"]
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: f06d5ff
+attempts: 1
+lease_expires_at: null
+created_at: 1793433286344
+updated_at: 1793433289957
+blocking_reason: null
+tests_passed: true
+```
+
+```yaml
+id: AZC-030
+title: "Quota parking, rotation, and disconnect handling"
+phase: 3
+description: "Match per-model park behavior for 405/3012, 402/11113, and 429, and stop retries after client-visible output."
+priority: medium
+status: READY
+owner: null
+depends_on: ["AZC-023"]
+allowed_paths: ["apps/gateway/","packages/pool/"]
+acceptance_criteria: ["Gateway tests cover park, rotate, and no-retry-after-output"]
+test_commands: ["node --experimental-strip-types --test apps/gateway/src/server.test.ts"]
+branch: null
+worktree: null
+last_commit: null
+attempts: 0
+lease_expires_at: null
+created_at: 1793433286345
+updated_at: 1793433286345
+blocking_reason: null
+tests_passed: false
+```
+
+```yaml
+id: AZC-040
+title: "Import the user's own ZCode credential file"
+phase: 4
+description: "Read ~/.zcode credentials, decrypt enc:v1 blobs only for the local user, and write account snapshots. Never log tokens."
+priority: medium
+status: READY
+owner: null
+depends_on: ["AZC-022"]
+allowed_paths: ["packages/pool/"]
+acceptance_criteria: ["Round-trip test with a synthetic AES-GCM fixture","Tokens absent from logs"]
+test_commands: ["node --experimental-strip-types --test packages/pool/src/credentials.test.ts"]
+branch: null
+worktree: null
+last_commit: null
+attempts: 0
+lease_expires_at: null
+created_at: 1793433286345
+updated_at: 1793433286345
+blocking_reason: null
+tests_passed: false
+```
+
+```yaml
+id: AZC-041
+title: "User-present device login"
+phase: 4
+description: "Official OAuth poll flow. The user approves in a browser. No automated signup."
+priority: medium
+status: READY
+owner: null
+depends_on: ["AZC-023"]
+allowed_paths: ["apps/gateway/"]
+acceptance_criteria: ["Login state machine tested with a mock OAuth server"]
+test_commands: ["node --experimental-strip-types --test apps/gateway/src/login.test.ts"]
+branch: null
+worktree: null
+last_commit: null
+attempts: 0
+lease_expires_at: null
+created_at: 1793433286345
+updated_at: 1793433286345
+blocking_reason: null
+tests_passed: false
+```
+
+```yaml
+id: AZC-024
+title: "Electron shell and Vue dashboard"
+phase: 5
+description: "Context-isolated Electron window, Vue pages for overview, accounts, models, usage, and settings, bound to the local gateway."
+priority: high
+status: DONE
+owner: null
+depends_on: ["AZC-023"]
+allowed_paths: ["apps/desktop/","DESIGN.md"]
+acceptance_criteria: ["Desktop project typechecks or builds","Renderer has no Node integration"]
+test_commands: ["npm run build -w @azc/desktop"]
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: f06d5ff
+attempts: 1
+lease_expires_at: null
+created_at: 1793433286344
+updated_at: 1793433290364
+blocking_reason: null
+tests_passed: true
+```
+
+```yaml
+id: AZC-050
+title: "Dashboard journeys on live gateway data"
+phase: 5
+description: "Overview, accounts, models, usage, and settings read the running gateway. No permanent mock data."
+priority: medium
+status: READY
+owner: null
+depends_on: ["AZC-024","AZC-023"]
+allowed_paths: ["apps/desktop/"]
+acceptance_criteria: ["UI builds","Empty and error states render"]
+test_commands: ["npm run build -w @azc/desktop"]
+branch: null
+worktree: null
+last_commit: null
+attempts: 0
+lease_expires_at: null
+created_at: 1793433286345
+updated_at: 1793433286345
+blocking_reason: null
+tests_passed: false
+```
+
+```yaml
+id: AZC-060
+title: "Record unsupported generator workflows"
+phase: 6
+description: "Do not port CAPTCHA solving, bulk signup, or promotional credit claims. Document the compliant alternative: import or device-login of accounts the user owns."
+priority: high
+status: DONE
+owner: null
+depends_on: ["AZC-003"]
+allowed_paths: ["docs/rewrite/","apps/gateway/"]
+acceptance_criteria: ["API_COMPATIBILITY.md and the gateway both say these routes are unsupported"]
+test_commands: ["node --experimental-strip-types --test apps/gateway/src/server.test.ts"]
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: f06d5ff
+attempts: 1
+lease_expires_at: null
+created_at: 1793433286345
+updated_at: 1793433289570
+blocking_reason: null
+tests_passed: true
+```
+
+```yaml
+id: AZC-070
+title: "Legacy data migration and backup restore"
+phase: 7
+description: "Copy config, account snapshots, usage SQLite, and relay settings into the new data directory. Never mutate the source."
+priority: medium
+status: READY
+owner: null
+depends_on: ["AZC-022","AZC-023"]
+allowed_paths: ["packages/database/","apps/gateway/"]
+acceptance_criteria: ["Migration tests use sanitized fixtures and roll back on failure"]
+test_commands: ["node --experimental-strip-types --test packages/database/src/migrate.test.ts"]
+branch: null
+worktree: null
+last_commit: null
+attempts: 0
+lease_expires_at: null
+created_at: 1793433286345
+updated_at: 1793433286345
+blocking_reason: null
+tests_passed: false
+```
+
+```yaml
+id: AZC-080
+title: "Failure injection and measured performance"
+phase: 8
+description: "Exercise upstream timeout, worker crash, and unclean SQLite shutdown. Record only measurements that were actually taken."
+priority: medium
+status: READY
+owner: null
+depends_on: ["AZC-023","AZC-030"]
+allowed_paths: ["apps/gateway/","docs/rewrite/PERFORMANCE_RESULTS.md"]
+acceptance_criteria: ["PERFORMANCE_RESULTS.md contains real numbers or an explicit not-measured marker"]
+test_commands: ["node --experimental-strip-types --test apps/gateway/src/failure.test.ts"]
+branch: null
+worktree: null
+last_commit: null
+attempts: 0
+lease_expires_at: null
+created_at: 1793433286345
+updated_at: 1793433286345
+blocking_reason: null
+tests_passed: false
+```
+
+```yaml
+id: AZC-090
+title: "Electron Builder packaging configuration"
+phase: 9
+description: "Configure macOS, Windows, and Linux packages. Do not claim a platform was tested unless it was."
+priority: medium
+status: READY
+owner: null
+depends_on: ["AZC-024"]
+allowed_paths: ["apps/desktop/"]
+acceptance_criteria: ["electron-builder config exists","Unverified targets are labeled unverified"]
+test_commands: ["test -f apps/desktop/electron-builder.yml"]
+branch: null
+worktree: null
+last_commit: null
+attempts: 0
+lease_expires_at: null
+created_at: 1793433286345
+updated_at: 1793433286345
+blocking_reason: null
+tests_passed: false
+```
+
+```yaml
+id: AZC-100
+title: "GitHub Actions for the rewrite"
+phase: 10
+description: "CI runs the Node test suite on pull requests. Release workflow stays a draft until signing secrets exist."
+priority: medium
+status: DONE
+owner: null
+depends_on: ["AZC-023","AZC-010"]
+allowed_paths: [".github/workflows/"]
+acceptance_criteria: ["ci.yml runs unit and gateway tests"]
+test_commands: ["test -f .github/workflows/ci.yml"]
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: f06d5ff
+attempts: 1
+lease_expires_at: null
+created_at: 1793433286345
+updated_at: 1793433290699
+blocking_reason: null
+tests_passed: true
+```
+
+```yaml
+id: AZC-110
+title: "Final parity audit and delivery report"
+phase: 11
+description: "Write FINAL_DELIVERY_REPORT.md only after the supported feature set is verified. Do not invent artifact verification."
+priority: low
+status: READY
+owner: null
+depends_on: ["AZC-023","AZC-024","AZC-060","AZC-070","AZC-090","AZC-100"]
+allowed_paths: ["docs/rewrite/FINAL_DELIVERY_REPORT.md"]
+acceptance_criteria: ["Report separates verified, unverified, and intentionally unsupported items"]
+test_commands: ["test -f docs/rewrite/FINAL_DELIVERY_REPORT.md"]
+branch: null
+worktree: null
+last_commit: null
+attempts: 0
+lease_expires_at: null
+created_at: 1793433286345
+updated_at: 1793433286345
+blocking_reason: null
+tests_passed: false
+```

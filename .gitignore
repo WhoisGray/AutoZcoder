@@ -61,3 +61,14 @@ Desktop.ini
 tools/captcha-mint/node_modules/
 tools/captcha-mint/captcha-mint.exe
 zcode-gateway-backup-*.zip
+
+# ---- rewrite runtime (never commit secrets or the live board db) ----
+.agent/runtime/
+node_modules/
+coverage/
+*.tsbuildinfo
+.vite/
+apps/desktop/dist/
+apps/desktop/out/
+apps/desktop/release/
+apps/gateway/dist/
