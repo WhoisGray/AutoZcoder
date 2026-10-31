@@ -443,19 +443,19 @@ title: "Final parity audit and delivery report"
 phase: 11
 description: "Write FINAL_DELIVERY_REPORT.md only after the supported feature set is verified. Do not invent artifact verification."
 priority: low
-status: READY
+status: DONE
 owner: null
 depends_on: ["AZC-023","AZC-024","AZC-060","AZC-070","AZC-090","AZC-100"]
 allowed_paths: ["docs/rewrite/FINAL_DELIVERY_REPORT.md"]
 acceptance_criteria: ["Report separates verified, unverified, and intentionally unsupported items"]
 test_commands: ["test -f docs/rewrite/FINAL_DELIVERY_REPORT.md"]
-branch: null
-worktree: null
-last_commit: null
-attempts: 0
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: 3a8b7fd
+attempts: 1
 lease_expires_at: null
 created_at: 1793433286345
-updated_at: 1793433286345
+updated_at: 1793437780522
 blocking_reason: null
-tests_passed: false
+tests_passed: true
 ```

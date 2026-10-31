@@ -15,7 +15,7 @@ The task board in `.agent/` is the schedule. This file is the map.
 | 8 Performance | Measured gates | One Mac sample is in `PERFORMANCE_RESULTS.md`. Upstream TTFB, throughput, and installers were not measured |
 | 9 Packaging | Clean install on each OS | `electron-builder.yml` lists macOS, Windows, and Linux targets and marks them unverified. No installer was built |
 | 10 CI | Pipelines | Node job added to `.github/workflows/ci.yml`. Not run on GitHub from here |
-| 11 Report | Final delivery | Not started. The product is not finished |
+| 11 Report | Final delivery | `FINAL_DELIVERY_REPORT.md` is written. The product is not finished: no installer, no Electron launch, no GitHub run, no live Z.ai call |
 
 Run the rewrite tests with:
 

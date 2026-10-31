@@ -16,7 +16,7 @@ Command:
 
 ## Not measured
 
-Cold start, warm start, idle RSS, dashboard latency, request throughput, time to first byte, browser launch, installer size. Those stay unmeasured until `AZC-080`. Do not treat the test duration as a gateway benchmark.
+One cold start, one warm start, one RSS sample, and one local upstream-timeout wait are in `PERFORMANCE_RESULTS.md`. Dashboard latency, request throughput, time to first byte from Z.ai, browser launch, and installer size were not measured. Do not treat the test duration as a gateway benchmark.
 
 ## Rewrite suite
 
