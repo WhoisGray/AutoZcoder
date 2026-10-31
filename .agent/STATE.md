@@ -1,20 +1,20 @@
 # State
 
-Updated: 2026-10-31T08:42:59.019Z
+Updated: 2026-10-31T09:00:11.156Z
 
-- Current phase: 7
+- Current phase: 8
 - Tasks in DOING: none
 - Last completed: AZC-100
-- Next eligible: AZC-070
+- Next eligible: AZC-080
 - Branch: rewrite/electron-vue-node
-- Commit: d4d2bca
+- Commit: 4c19b93
 
 Counts:
 
 - BACKLOG: 0
-- READY: 4
+- READY: 3
 - DOING: 0
 - REVIEW: 0
 - BLOCKED: 0
-- DONE: 16
+- DONE: 17
 - CANCELLED: 0

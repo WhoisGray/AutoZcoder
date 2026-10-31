@@ -351,21 +351,21 @@ title: "Legacy data migration and backup restore"
 phase: 7
 description: "Copy config, account snapshots, usage SQLite, and relay settings into the new data directory. Never mutate the source."
 priority: medium
-status: READY
+status: DONE
 owner: null
 depends_on: ["AZC-022","AZC-023"]
 allowed_paths: ["packages/database/","apps/gateway/"]
 acceptance_criteria: ["Migration tests use sanitized fixtures and roll back on failure"]
 test_commands: ["node --experimental-strip-types --test packages/database/src/migrate.test.ts"]
-branch: null
-worktree: null
-last_commit: null
-attempts: 0
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: 4c19b93
+attempts: 1
 lease_expires_at: null
 created_at: 1793433286345
-updated_at: 1793433286345
+updated_at: 1793437210955
 blocking_reason: null
-tests_passed: false
+tests_passed: true
 ```
 
 ```yaml

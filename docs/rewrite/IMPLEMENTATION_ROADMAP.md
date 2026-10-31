@@ -11,7 +11,7 @@ The task board in `.agent/` is the schedule. This file is the map.
 | 4 Accounts | Pool and storage tests | Snapshots, strategies, usage rows, `enc:v1` import, and user-present device login against a mock broker. No quota polling. No live Z.ai login |
 | 5 Dashboard | Desktop journeys | Empty and error copy is in the Vue pages. `journeys.test.ts` called a live empty gateway. Vite production build succeeded. Not painted in a browser. Electron window not opened |
 | 6 Automation | Supported browser flows | Signup, CAPTCHA, and claims are refused. No replacement browser flow yet |
-| 7 Migration | Import and rollback tests | Plan only |
+| 7 Migration | Import and rollback tests | Directory and zip import, rollback, and skipped generator files pass. `config.json` is not applied on the next launch. Relays are copied and not deployed |
 | 8 Performance | Measured gates | Baseline pytest only |
 | 9 Packaging | Clean install on each OS | Not built |
 | 10 CI | Pipelines | Node job added to `.github/workflows/ci.yml`. Not run on GitHub from here |

@@ -19,7 +19,7 @@ This is a local network service that holds third-party access tokens. The review
 - Admin and client keys generated in `index.ts` are printed only as a hint, but the full key still lives in the environment of the gateway process. There is no OS keychain yet.
 - The Vue settings page can store keys in `localStorage`. That is acceptable only for a local app window. Do not load the renderer from a remote origin.
 - Content-Security-Policy is on the desktop `index.html`. The Vite dev server is a separate origin and is for development.
-- YAML config loading is not implemented, so a copied `config.yaml` is not what the Node process reads.
+- Legacy migration copies `config.yaml` into `config.json` with a small YAML reader. The running process still uses environment variables on startup and does not apply that file by itself. The admin migrate response returns key hints. Account snapshots stay mode `0600`. The source database is opened read-only on a byte copy. Generator proxies, inboxes, and claim results are not imported. A zip path that leaves the archive is rejected.
 - Credential import decrypts `enc:v1` with AES-256-GCM. The key is SHA-256 of `ZCODE_CREDENTIAL_SECRET`, or of `zcode-credential-fallback:<platform>:<home>:<username>`. A blob sealed on another machine stays sealed. The admin import response and the account list contain a token hint, not the token.
 - Device login posts to the official `/oauth/cli/init` endpoint and polls until the user approves in a browser. The approval URL has to be `https` on `chat.z.ai` or `zcode.z.ai`. Login status does not include the token. The flow was tested with a mock broker, not a live call.
 - Rate-limit `rpm` is parsed and not enforced.
@@ -29,4 +29,4 @@ This is a local network service that holds third-party access tokens. The review
 
 ## Logging
 
-Gateway request failures log the path, not the body. Import logs the account id. Tests use synthetic tokens and must stay that way.
+Gateway request failures log the path, not the body. Import and migration log the account count or id, not the token. Tests use synthetic tokens and must stay that way.

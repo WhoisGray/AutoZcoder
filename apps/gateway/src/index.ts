@@ -25,7 +25,7 @@ export function buildApp(config: GatewayConfig, upstream: UpstreamClient) {
     upstream,
     config,
   });
-  return { config, service, logs: [] as string[], store };
+  return { config, service, logs: [] as string[], store, dataDir: dataDir() };
 }
 
 async function main() {

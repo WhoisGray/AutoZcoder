@@ -1,10 +1,11 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import os from "node:os";
-import path from "node:path";
+import nodePath from "node:path";
+import { migrateLegacy, publicMigration } from "../../../packages/database/src/migrate.ts";
 import { Account } from "../../../packages/pool/src/account.ts";
 import { importCredentials, readCredentials } from "../../../packages/pool/src/credentials.ts";
-import { accountFromFields, writeSnapshotAtomic } from "../../../packages/pool/src/snapshots.ts";
+import { accountFromFields, loadAccountsDir, writeSnapshotAtomic } from "../../../packages/pool/src/snapshots.ts";
 import { UNSUPPORTED_FEATURE_MESSAGE, openaiError } from "../../../packages/protocols/src/index.ts";
 import { ChatService, estimateTokens, failureBody, makeConfig, type ChatFailure, type GatewayConfig } from "./service.ts";
 import { DeviceLogin, fetchLoginClient, type LoginClient } from "./login.ts";
@@ -70,6 +71,8 @@ export interface GatewayApp {
   service: ChatService;
   logs: string[];
   loginClient?: LoginClient;
+  /** Directory that holds config.json, accounts/, gateway.db, and relays.json. */
+  dataDir?: string;
 }
 
 export function createGateway(app: GatewayApp) {
@@ -210,8 +213,8 @@ export function createGateway(app: GatewayApp) {
         if (denied) return sendJson(res, denied.status, { detail: denied.message });
         if (!config.accountsDir) return sendJson(res, 500, { detail: "accounts directory is not configured" });
         const body = (await readJson(req)) as { path?: string };
-        const requested = typeof body.path === "string" && body.path.trim() ? body.path.trim() : path.join(os.homedir(), ".zcode", "v2", "credentials.json");
-        const file = requested === "~" ? os.homedir() : requested.startsWith("~/") ? path.join(os.homedir(), requested.slice(2)) : requested;
+        const requested = typeof body.path === "string" && body.path.trim() ? body.path.trim() : nodePath.join(os.homedir(), ".zcode", "v2", "credentials.json");
+        const file = requested === "~" ? os.homedir() : requested.startsWith("~/") ? nodePath.join(os.homedir(), requested.slice(2)) : requested;
         try {
           const result = importCredentials(file, config.accountsDir);
           for (const fields of readCredentials(file)) {
@@ -225,6 +228,27 @@ export function createGateway(app: GatewayApp) {
         } catch (error) {
           const message = error instanceof Error ? error.message : "cannot import credentials";
           sendJson(res, message === "credentials file not found" ? 404 : 400, { detail: message });
+        }
+        return;
+      }
+      if (req.method === "POST" && path === "/admin/migrate") {
+        const denied = requireAdmin(req);
+        if (denied) return sendJson(res, denied.status, { detail: denied.message });
+        if (!app.dataDir) return sendJson(res, 500, { detail: "data directory is not configured" });
+        const body = (await readJson(req)) as { source?: string };
+        if (typeof body.source !== "string" || !body.source.trim()) return sendJson(res, 400, { detail: "source is required" });
+        try {
+          const result = migrateLegacy({
+            source: body.source.trim(),
+            destination: app.dataDir,
+            credentialSecret: process.env.ZCODE_CREDENTIAL_SECRET,
+          });
+          for (const account of loadAccountsDir(nodePath.join(app.dataDir, "accounts"))) service.pool.upsert(account);
+          log(`migrated ${result.accountsImported.length} legacy account(s)`);
+          sendJson(res, 200, publicMigration(result));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "migration failed";
+          sendJson(res, 400, { detail: message });
         }
         return;
       }

@@ -498,7 +498,7 @@
     "phase": 7,
     "description": "Copy config, account snapshots, usage SQLite, and relay settings into the new data directory. Never mutate the source.",
     "priority": "medium",
-    "status": "READY",
+    "status": "DONE",
     "owner": null,
     "depends_on": [
       "AZC-022",
@@ -514,17 +514,17 @@
     "test_commands": [
       "node --experimental-strip-types --test packages/database/src/migrate.test.ts"
     ],
-    "branch": null,
-    "worktree": null,
-    "last_commit": null,
-    "attempts": 0,
+    "branch": "rewrite/electron-vue-node",
+    "worktree": "/Users/paliz/Downloads/هحسثززز/zcode",
+    "last_commit": "4c19b93",
+    "attempts": 1,
     "lease_expires_at": null,
     "created_at": 1793433286345,
-    "updated_at": 1793433286345,
+    "updated_at": 1793437210955,
     "blocking_reason": null,
     "objective": null,
-    "tests_passed": false,
-    "test_summary": null
+    "tests_passed": true,
+    "test_summary": "npm test 56 passed, 0 failed, 0 skipped, duration_ms 294.952541, Node v24.22.1. Migration fixtures are sanitized. Source bytes stay unchanged. No live Z.ai call."
   },
   {
     "id": "AZC-080",
