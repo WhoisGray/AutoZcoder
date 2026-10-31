@@ -5,11 +5,11 @@ Authoritative state is `.agent/runtime/board.db`. This file is a snapshot.
 | Status | Count |
 | --- | ---: |
 | BACKLOG | 0 |
-| READY | 2 |
+| READY | 1 |
 | DOING | 0 |
 | REVIEW | 0 |
 | BLOCKED | 0 |
-| DONE | 18 |
+| DONE | 19 |
 | CANCELLED | 0 |
 
 | ID | Phase | Priority | Status | Owner | Title |
@@ -31,6 +31,6 @@ Authoritative state is `.agent/runtime/board.db`. This file is a snapshot.
 | AZC-060 | 6 | high | DONE |  | Record unsupported generator workflows |
 | AZC-070 | 7 | medium | DONE |  | Legacy data migration and backup restore |
 | AZC-080 | 8 | medium | DONE |  | Failure injection and measured performance |
-| AZC-090 | 9 | medium | READY |  | Electron Builder packaging configuration |
+| AZC-090 | 9 | medium | DONE |  | Electron Builder packaging configuration |
 | AZC-100 | 10 | medium | DONE |  | GitHub Actions for the rewrite |
 | AZC-110 | 11 | low | READY |  | Final parity audit and delivery report |

@@ -566,7 +566,7 @@
     "phase": 9,
     "description": "Configure macOS, Windows, and Linux packages. Do not claim a platform was tested unless it was.",
     "priority": "medium",
-    "status": "READY",
+    "status": "DONE",
     "owner": null,
     "depends_on": [
       "AZC-024"
@@ -581,17 +581,17 @@
     "test_commands": [
       "test -f apps/desktop/electron-builder.yml"
     ],
-    "branch": null,
-    "worktree": null,
-    "last_commit": null,
-    "attempts": 0,
+    "branch": "rewrite/electron-vue-node",
+    "worktree": "/Users/paliz/Downloads/هحسثززز/zcode",
+    "last_commit": "0641c6b",
+    "attempts": 1,
     "lease_expires_at": null,
     "created_at": 1793433286345,
-    "updated_at": 1793433286345,
+    "updated_at": 1793437658238,
     "blocking_reason": null,
     "objective": null,
-    "tests_passed": false,
-    "test_summary": null
+    "tests_passed": true,
+    "test_summary": "test -f apps/desktop/electron-builder.yml passed. npm test 58 passed, 0 failed, 0 skipped, duration_ms 546.716583, Node v24.22.1. No installer was built. macOS, Windows, and Linux targets are unverified."
   },
   {
     "id": "AZC-100",

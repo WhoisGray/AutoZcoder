@@ -13,7 +13,7 @@ The task board in `.agent/` is the schedule. This file is the map.
 | 6 Automation | Supported browser flows | Signup, CAPTCHA, and claims are refused. No replacement browser flow yet |
 | 7 Migration | Import and rollback tests | Directory and zip import, rollback, and skipped generator files pass. `config.json` is not applied on the next launch. Relays are copied and not deployed |
 | 8 Performance | Measured gates | One Mac sample is in `PERFORMANCE_RESULTS.md`. Upstream TTFB, throughput, and installers were not measured |
-| 9 Packaging | Clean install on each OS | Not built |
+| 9 Packaging | Clean install on each OS | `electron-builder.yml` lists macOS, Windows, and Linux targets and marks them unverified. No installer was built |
 | 10 CI | Pipelines | Node job added to `.github/workflows/ci.yml`. Not run on GitHub from here |
 | 11 Report | Final delivery | Not started. The product is not finished |
 

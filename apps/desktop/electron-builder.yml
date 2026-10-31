@@ -1,0 +1,31 @@
+# UNVERIFIED targets. No macOS, Windows, or Linux package from this file has been built or launched.
+# electron and electron-builder are not installed in this workspace, and electron-builder was not run.
+# The desktop main process still starts the gateway with a repository-relative path. That path is not a packaged layout.
+
+appId: ir.graygroup.autozcoder
+productName: AutoZCoder
+copyright: Copyright © 2026 Gray Group
+directories:
+  output: dist-electron
+files:
+  - dist/**
+  - electron/**
+  - package.json
+asar: true
+npmRebuild: false
+mac:
+  category: public.app-category.developer-tools
+  # unverified: not built, not signed, not opened
+  target:
+    - dmg
+    - zip
+win:
+  # unverified: not built and not launched
+  target:
+    - nsis
+linux:
+  # unverified: not built and not launched
+  target:
+    - AppImage
+    - deb
+publish: null

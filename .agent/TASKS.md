@@ -397,21 +397,21 @@ title: "Electron Builder packaging configuration"
 phase: 9
 description: "Configure macOS, Windows, and Linux packages. Do not claim a platform was tested unless it was."
 priority: medium
-status: READY
+status: DONE
 owner: null
 depends_on: ["AZC-024"]
 allowed_paths: ["apps/desktop/"]
 acceptance_criteria: ["electron-builder config exists","Unverified targets are labeled unverified"]
 test_commands: ["test -f apps/desktop/electron-builder.yml"]
-branch: null
-worktree: null
-last_commit: null
-attempts: 0
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: 0641c6b
+attempts: 1
 lease_expires_at: null
 created_at: 1793433286345
-updated_at: 1793433286345
+updated_at: 1793437658238
 blocking_reason: null
-tests_passed: false
+tests_passed: true
 ```
 
 ```yaml
