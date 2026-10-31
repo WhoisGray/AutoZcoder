@@ -4,6 +4,7 @@ import { useGateway } from "../stores/gateway.ts";
 
 const gateway = useGateway();
 const remote = ref<Record<string, any> | null>(null);
+const login = ref<Record<string, any> | null>(null);
 const message = ref("");
 
 function save() {
@@ -13,6 +14,10 @@ function save() {
 
 async function loadRemote() {
   remote.value = await gateway.request("/admin/dash/settings");
+}
+
+async function startLogin() {
+  login.value = await gateway.request("/admin/accounts/login", { method: "POST", body: {} });
 }
 </script>
 
@@ -35,9 +40,15 @@ async function loadRemote() {
       <h2 class="font-medium">Account generation</h2>
       <p class="mt-2" style="color: var(--muted)">
         Automated signup, CAPTCHA solving, and promotional credit claims are not in this rewrite.
-        Import a snapshot of an account you own, or use device login when that flow is available.
+        Import a snapshot of an account you own, or start device login and approve it in your browser.
       </p>
       <button type="button" class="mt-3 rounded-lg px-3 py-2 text-[13px]" style="background: var(--surface-2)" @click="loadRemote">Load gateway settings</button>
+      <button type="button" class="ml-2 mt-3 rounded-lg px-3 py-2 text-[13px]" style="background: var(--surface-2)" @click="startLogin">Start device login</button>
+      <p v-if="remote && remote.generator && remote.generator.supported === false" class="mt-3" style="color: var(--muted)">{{ remote.generator.reason }}</p>
+      <p v-if="login?.verification_url" class="mt-3">
+        <a :href="login.verification_url" style="color: var(--accent)">Approve in browser</a>
+      </p>
+      <p v-else-if="login && login.state === 'error'" class="mt-3" style="color: var(--danger)">{{ login.error || "Login failed" }}</p>
       <dl v-if="remote" class="mt-3 grid grid-cols-2 gap-2">
         <dt style="color: var(--muted)">Listen</dt>
         <dd>{{ remote.host }}:{{ remote.port }}</dd>

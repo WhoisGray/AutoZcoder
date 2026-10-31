@@ -22,6 +22,7 @@ onMounted(() => {
       <div class="mt-2 text-2xl font-semibold tabular-nums">{{ card[1] }}</div>
     </section>
     <p v-if="!gateway.adminKey" class="md:col-span-4 text-[13px]" style="color: var(--muted)">Admin key required.</p>
+    <p v-else-if="stats && stats.requests === 0" class="md:col-span-4 text-[13px]" style="color: var(--muted)">No usage yet.</p>
     <p v-if="gateway.error" class="md:col-span-4 text-[13px]" style="color: var(--danger)">{{ gateway.error }}</p>
   </div>
 </template>

@@ -9,7 +9,7 @@ The task board in `.agent/` is the schedule. This file is the map.
 | 2 Foundation | Electron, Vue, and Node launch | Node packages and a Vue project exist. A packaged double-click app does not |
 | 3 Gateway | Contract and streaming tests | Mock-upstream contracts pass, including park, rotate, no replay after content, and disconnect cancel. Live upstream was not called. The client still receives a buffered body |
 | 4 Accounts | Pool and storage tests | Snapshots, strategies, usage rows, `enc:v1` import, and user-present device login against a mock broker. No quota polling. No live Z.ai login |
-| 5 Dashboard | Desktop journeys | Pages call the local API. Not exercised in a browser in this session |
+| 5 Dashboard | Desktop journeys | Empty and error copy is in the Vue pages. `journeys.test.ts` called a live empty gateway. Vite production build succeeded. Not painted in a browser. Electron window not opened |
 | 6 Automation | Supported browser flows | Signup, CAPTCHA, and claims are refused. No replacement browser flow yet |
 | 7 Migration | Import and rollback tests | Plan only |
 | 8 Performance | Measured gates | Baseline pytest only |

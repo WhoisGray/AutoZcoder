@@ -305,21 +305,21 @@ title: "Dashboard journeys on live gateway data"
 phase: 5
 description: "Overview, accounts, models, usage, and settings read the running gateway. No permanent mock data."
 priority: medium
-status: READY
+status: DONE
 owner: null
 depends_on: ["AZC-024","AZC-023"]
 allowed_paths: ["apps/desktop/"]
 acceptance_criteria: ["UI builds","Empty and error states render"]
 test_commands: ["npm run build -w @azc/desktop"]
-branch: null
-worktree: null
-last_commit: null
-attempts: 0
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: e4e9368
+attempts: 1
 lease_expires_at: null
 created_at: 1793433286345
-updated_at: 1793433286345
+updated_at: 1793436159246
 blocking_reason: null
-tests_passed: false
+tests_passed: true
 ```
 
 ```yaml

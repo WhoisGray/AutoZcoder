@@ -32,7 +32,9 @@ onMounted(async () => {
       </thead>
       <tbody>
         <tr v-if="models.length === 0">
-          <td class="px-4 py-6" colspan="4" style="color: var(--muted)">Set a client or admin key in Settings, then reopen this page.</td>
+          <td class="px-4 py-6" colspan="4" style="color: var(--muted)">
+            {{ gateway.error ? gateway.error : "Set a client or admin key in Settings, then reopen this page." }}
+          </td>
         </tr>
         <tr v-for="model in models" :key="model.id" class="border-t" style="border-color: var(--line)">
           <td class="px-4 py-3">{{ model.id }}</td>

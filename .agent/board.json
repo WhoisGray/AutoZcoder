@@ -431,7 +431,7 @@
     "phase": 5,
     "description": "Overview, accounts, models, usage, and settings read the running gateway. No permanent mock data.",
     "priority": "medium",
-    "status": "READY",
+    "status": "DONE",
     "owner": null,
     "depends_on": [
       "AZC-024",
@@ -447,17 +447,17 @@
     "test_commands": [
       "npm run build -w @azc/desktop"
     ],
-    "branch": null,
-    "worktree": null,
-    "last_commit": null,
-    "attempts": 0,
+    "branch": "rewrite/electron-vue-node",
+    "worktree": "/Users/paliz/Downloads/هحسثززز/zcode",
+    "last_commit": "e4e9368",
+    "attempts": 1,
     "lease_expires_at": null,
     "created_at": 1793433286345,
-    "updated_at": 1793433286345,
+    "updated_at": 1793436159246,
     "blocking_reason": null,
-    "objective": null,
-    "tests_passed": false,
-    "test_summary": null
+    "objective": "Dashboard pages read the live gateway, including empty and error states",
+    "tests_passed": true,
+    "test_summary": "npm test 49 passed, 0 failed, 0 skipped, duration_ms 243.302375, Node v24.22.1. Vite build of @azc/desktop succeeded in 99 ms. Journey test hit a live empty gateway. No browser click-through. Electron window was not opened."
   },
   {
     "id": "AZC-060",

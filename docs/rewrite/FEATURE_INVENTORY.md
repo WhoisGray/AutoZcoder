@@ -32,8 +32,8 @@ Source of truth: the Python tree on `master` at `f06d5ff`, inspected in this wor
 | Kilo config sync | `client_sync.py` | Optional local client config edits | Python tests | user config path | not ported | DISCOVERED |
 | Edge-block breaker | `breaker.py`, `service.py` | Pauses the pool when the CDN returns an HTML 403 | Python tests | none | classification exists; breaker loop is not ported | PLANNED |
 | Request capture | `store.py` JsonlCapture | Off by default | Python tests | `logging.capture` | not ported | PLANNED |
-| Desktop shell | `gui.py`, pywebview | Windows/macOS window around the dashboard | none automated found | none | Electron shell in `apps/desktop` | IN_PROGRESS |
-| Web dashboard | `dashboard/index.html`, `api_dash.py` | Monolithic page for every admin surface | Python dashboard tests | admin key | Vue pages for overview, accounts, models, usage, settings | IN_PROGRESS |
+| Desktop shell | `gui.py`, pywebview | Windows/macOS window around the dashboard | none automated found | none | Electron shell in `apps/desktop`. The window was not opened | IN_PROGRESS |
+| Web dashboard | `dashboard/index.html`, `api_dash.py` | Monolithic page for every admin surface | Python dashboard tests; `apps/desktop/src/journeys.test.ts` | admin key | Vue pages for overview, accounts, models, usage, and settings. Empty and error copy is in the templates. A live empty gateway answered health, ready, models, accounts, stats, and settings | TESTED against a local gateway. Not painted in a browser |
 
 ## Explicitly unsupported
 
@@ -47,7 +47,7 @@ These exist in the Python tree. They are not being reimplemented. The Node gatew
 | Proxy scraping for signup | `generator/proxy_pool.py` and the dashboard proxy tools | Exists to obtain exit addresses for the signup pipeline |
 | One-click worker deploy that installs Node | dashboard generator mail routes | The rewrite must not download a toolchain onto the end user's machine |
 
-The compliant path is: import a snapshot of an account the user already owns, or the planned device-login flow where the user approves the official client in a browser.
+The compliant path is: import a snapshot of an account the user already owns, or start device login and approve it in the browser.
 
 The existing `mail-worker/` template stays in the repository for people who already operate it. The new app does not deploy it.
 
