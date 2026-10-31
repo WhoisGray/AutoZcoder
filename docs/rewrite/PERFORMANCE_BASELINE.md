@@ -22,7 +22,7 @@ Cold start, warm start, idle RSS, dashboard latency, request throughput, time to
 
 `npm test` on Node v24.22.1:
 
-- **42 passed, 0 failed, 0 skipped**
-- Test runner duration: **258.00 ms** (`duration_ms` 257.999125 from `npm test` on 2026-10-31, after credential-import tests)
+- **47 passed, 0 failed, 0 skipped**
+- Test runner duration: **371.43 ms** (`duration_ms` 371.430666 from `npm test` on 2026-10-31, after the device-login tests)
 
 That duration is the unit-test process, not a throughput benchmark. The Vue production build (`npm run build -w @azc/desktop`) finished in **618 ms** and wrote `apps/desktop/dist`. Electron itself was not installed and the window was not opened.

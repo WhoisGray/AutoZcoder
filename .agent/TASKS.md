@@ -259,21 +259,21 @@ title: "User-present device login"
 phase: 4
 description: "Official OAuth poll flow. The user approves in a browser. No automated signup."
 priority: medium
-status: READY
+status: DONE
 owner: null
 depends_on: ["AZC-023"]
 allowed_paths: ["apps/gateway/"]
 acceptance_criteria: ["Login state machine tested with a mock OAuth server"]
 test_commands: ["node --experimental-strip-types --test apps/gateway/src/login.test.ts"]
-branch: null
-worktree: null
-last_commit: null
-attempts: 0
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: 278b55e
+attempts: 1
 lease_expires_at: null
 created_at: 1793433286345
-updated_at: 1793433286345
+updated_at: 1793435195206
 blocking_reason: null
-tests_passed: false
+tests_passed: true
 ```
 
 ```yaml

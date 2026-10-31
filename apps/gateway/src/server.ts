@@ -7,6 +7,7 @@ import { importCredentials, readCredentials } from "../../../packages/pool/src/c
 import { accountFromFields, writeSnapshotAtomic } from "../../../packages/pool/src/snapshots.ts";
 import { UNSUPPORTED_FEATURE_MESSAGE, openaiError } from "../../../packages/protocols/src/index.ts";
 import { ChatService, estimateTokens, failureBody, makeConfig, type ChatFailure, type GatewayConfig } from "./service.ts";
+import { DeviceLogin, fetchLoginClient, type LoginClient } from "./login.ts";
 
 const SSE_HEADERS = {
   "content-type": "text/event-stream; charset=utf-8",
@@ -68,10 +69,12 @@ export interface GatewayApp {
   config: GatewayConfig;
   service: ChatService;
   logs: string[];
+  loginClient?: LoginClient;
 }
 
 export function createGateway(app: GatewayApp) {
   const { config, service } = app;
+  let activeLogin: DeviceLogin | null = null;
   const log = (line: string) => {
     app.logs.push(`${new Date().toISOString()} ${line}`);
     if (app.logs.length > 200) app.logs.shift();
@@ -137,6 +140,39 @@ export function createGateway(app: GatewayApp) {
         const auth = clientName(req);
         if (typeof auth !== "string") return sendJson(res, auth.status, failureBody("openai", auth));
         sendJson(res, 200, { object: "list", data: service.registry.catalogue() });
+        return;
+      }
+      if (req.method === "POST" && path === "/admin/accounts/login") {
+        const denied = requireAdmin(req);
+        if (denied) return sendJson(res, denied.status, { detail: denied.message });
+        if (!config.accountsDir) return sendJson(res, 500, { detail: "accounts directory is not configured" });
+        const login = new DeviceLogin({
+          accountsDir: config.accountsDir,
+          client: app.loginClient ?? fetchLoginClient(),
+          baseUrl: config.upstreamBaseUrl,
+          fingerprint: config.fingerprint,
+          onAccount: (account) => {
+            service.pool.upsert(account);
+          },
+        });
+        activeLogin = login;
+        const status = await login.start();
+        log(`device login ${status.state}`);
+        sendJson(res, status.state === "error" ? 502 : 200, status);
+        return;
+      }
+      if (req.method === "GET" && path === "/admin/accounts/login") {
+        const denied = requireAdmin(req);
+        if (denied) return sendJson(res, denied.status, { detail: denied.message });
+        sendJson(res, 200, activeLogin ? activeLogin.status() : { state: "idle", verification_url: null, error: null, email: null, expires_at: 0 });
+        return;
+      }
+      if (req.method === "POST" && path === "/admin/accounts/login/cancel") {
+        const denied = requireAdmin(req);
+        if (denied) return sendJson(res, denied.status, { detail: denied.message });
+        activeLogin?.cancel();
+        log("device login cancel requested");
+        sendJson(res, 200, activeLogin ? activeLogin.status() : { state: "idle", verification_url: null, error: null, email: null, expires_at: 0 });
         return;
       }
       if (req.method === "GET" && path === "/admin/accounts") {
