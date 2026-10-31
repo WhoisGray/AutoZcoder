@@ -5,11 +5,11 @@ Authoritative state is `.agent/runtime/board.db`. This file is a snapshot.
 | Status | Count |
 | --- | ---: |
 | BACKLOG | 0 |
-| READY | 7 |
+| READY | 6 |
 | DOING | 0 |
 | REVIEW | 0 |
 | BLOCKED | 0 |
-| DONE | 13 |
+| DONE | 14 |
 | CANCELLED | 0 |
 
 | ID | Phase | Priority | Status | Owner | Title |
@@ -24,7 +24,7 @@ Authoritative state is `.agent/runtime/board.db`. This file is a snapshot.
 | AZC-022 | 2 | high | DONE |  | Account pool, snapshot loader, and usage store |
 | AZC-023 | 3 | high | DONE |  | Node gateway HTTP surface with mock upstream |
 | AZC-030 | 3 | medium | DONE |  | Quota parking, rotation, and disconnect handling |
-| AZC-040 | 4 | medium | READY |  | Import the user's own ZCode credential file |
+| AZC-040 | 4 | medium | DONE |  | Import the user's own ZCode credential file |
 | AZC-041 | 4 | medium | READY |  | User-present device login |
 | AZC-024 | 5 | high | DONE |  | Electron shell and Vue dashboard |
 | AZC-050 | 5 | medium | READY |  | Dashboard journeys on live gateway data |

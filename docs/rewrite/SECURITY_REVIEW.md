@@ -20,7 +20,7 @@ This is a local network service that holds third-party access tokens. The review
 - The Vue settings page can store keys in `localStorage`. That is acceptable only for a local app window. Do not load the renderer from a remote origin.
 - Content-Security-Policy is on the desktop `index.html`. The Vite dev server is a separate origin and is for development.
 - YAML config loading is not implemented, so a copied `config.yaml` is not what the Node process reads.
-- Device-login and credential decryption are not implemented. Do not copy encrypted blobs across operating systems and expect them to open. `docs/PROTOCOL.md` says the key is derived from the platform, home directory, and username.
+- Credential import decrypts `enc:v1` with AES-256-GCM. The key is SHA-256 of `ZCODE_CREDENTIAL_SECRET`, or of `zcode-credential-fallback:<platform>:<home>:<username>`. A blob sealed on another machine stays sealed. The admin import response and the account list contain a token hint, not the token. Device login is not implemented yet.
 - Rate-limit `rpm` is parsed and not enforced.
 - The gateway does not yet apply a connection limit or backpressure beyond the 20 MB body cap.
 - Dependency audit of the Electron tree was not run in this session if `npm install` had not completed. See the delivery notes in `.agent/RESUME.md` after the next checkpoint.

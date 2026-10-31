@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createCipheriv, createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -473,4 +474,45 @@ test("a disconnected client cancels the upstream attempt and releases the accoun
   assert.equal(gw.service.pool.accounts[0]!.inFlight, 0);
   assert.equal(gw.service.pool.accounts[0]!.state, "ready");
   await gw.close();
+});
+
+test("admin import opens an enc:v1 credential file and does not return the token", async () => {
+  const previous = process.env.ZCODE_CREDENTIAL_SECRET;
+  process.env.ZCODE_CREDENTIAL_SECRET = "test-secret";
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "azc-import-"));
+  const payload = Buffer.from(JSON.stringify({ user_id: "owner-1", sub: "owner-1", iat: 4, exp: 4_000_000_000 })).toString("base64url");
+  const token = `eyJhbGciOiJIUzI1NiJ9.${payload}.not-a-real-signature-zzzz`;
+  const key = createHash("sha256").update("test-secret", "utf8").digest();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
+  const sealed = `enc:v1:${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}.${ciphertext.toString("base64url")}`;
+  fs.writeFileSync(
+    path.join(dir, "credentials.json"),
+    JSON.stringify({ zcodejwttoken: sealed, "oauth:zai:user_info": { email: "owner@example.test", name: "Owner" } }),
+  );
+  const gw = await start([]);
+  try {
+    const denied = await post(gw.base, "/admin/accounts/import", { path: path.join(dir, "credentials.json") }, "client-test-key");
+    assert.equal(denied.status, 403);
+    const imported = await post(gw.base, "/admin/accounts/import", { path: path.join(dir, "credentials.json") }, "admin-test-key");
+    assert.equal(imported.status, 200);
+    assert.equal(imported.json.written, 1);
+    assert.deepEqual(imported.json.emails, ["owner@example.test"]);
+    assert.equal(JSON.stringify(imported.json).includes("eyJhbGciOiJIUzI1NiJ9"), false);
+    assert.equal(JSON.stringify(imported.json).includes("not-a-real-signature-zzzz"), false);
+    const listed = await fetch(`${gw.base}/admin/accounts`, { headers: { authorization: "Bearer admin-test-key" } });
+    const body = await listed.json();
+    assert.equal(JSON.stringify(body).includes("not-a-real-signature-zzzz"), false);
+    assert.equal(
+      body.accounts.some((account: { id: string; token_hint: string }) => account.id === "owner-1" && account.token_hint.endsWith("zzzz")),
+      true,
+    );
+    const missing = await post(gw.base, "/admin/accounts/import", { path: path.join(dir, "missing.json") }, "admin-test-key");
+    assert.equal(missing.status, 404);
+  } finally {
+    if (previous == null) delete process.env.ZCODE_CREDENTIAL_SECRET;
+    else process.env.ZCODE_CREDENTIAL_SECRET = previous;
+    await gw.close();
+  }
 });

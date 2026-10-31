@@ -1,6 +1,9 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import os from "node:os";
+import path from "node:path";
 import { Account } from "../../../packages/pool/src/account.ts";
+import { importCredentials, readCredentials } from "../../../packages/pool/src/credentials.ts";
 import { accountFromFields, writeSnapshotAtomic } from "../../../packages/pool/src/snapshots.ts";
 import { UNSUPPORTED_FEATURE_MESSAGE, openaiError } from "../../../packages/protocols/src/index.ts";
 import { ChatService, estimateTokens, failureBody, makeConfig, type ChatFailure, type GatewayConfig } from "./service.ts";
@@ -164,6 +167,29 @@ export function createGateway(app: GatewayApp) {
         service.pool.upsert(account);
         log(`imported account ${account.id}`);
         sendJson(res, 200, { account: account.toPublic() });
+        return;
+      }
+      if (req.method === "POST" && path === "/admin/accounts/import") {
+        const denied = requireAdmin(req);
+        if (denied) return sendJson(res, denied.status, { detail: denied.message });
+        if (!config.accountsDir) return sendJson(res, 500, { detail: "accounts directory is not configured" });
+        const body = (await readJson(req)) as { path?: string };
+        const requested = typeof body.path === "string" && body.path.trim() ? body.path.trim() : path.join(os.homedir(), ".zcode", "v2", "credentials.json");
+        const file = requested === "~" ? os.homedir() : requested.startsWith("~/") ? path.join(os.homedir(), requested.slice(2)) : requested;
+        try {
+          const result = importCredentials(file, config.accountsDir);
+          for (const fields of readCredentials(file)) {
+            const account = accountFromFields(fields, `${fields.account_id}.txt`);
+            if (!account) continue;
+            account.source = "credentials";
+            service.pool.upsert(account);
+          }
+          log(`imported ${result.written} credential account(s)`);
+          sendJson(res, 200, result);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "cannot import credentials";
+          sendJson(res, message === "credentials file not found" ? 404 : 400, { detail: message });
+        }
         return;
       }
       const accountMatch = /^\/admin\/accounts\/([^/]+)$/.exec(path);

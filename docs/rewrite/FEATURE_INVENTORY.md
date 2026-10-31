@@ -25,7 +25,7 @@ Source of truth: the Python tree on `master` at `f06d5ff`, inspected in this wor
 | Providers JSON and pool.json loaders | `pool.py` | Other account sources | Python tests | `accounts.source` | not ported | PLANNED |
 | Quota and balance polling | `tokens.py`, `quota.py` | Background balance and plan checks | Python tests | `pool.balance_poll_seconds` | not ported | PLANNED |
 | Device login | `device_auth.py`, `api_dash.py` | User approves in a browser; gateway polls the official OAuth endpoints | `tests/test_login_resilience.py` | none | not ported | PLANNED |
-| Import installed ZCode credentials | `credential_cipher.py`, `zcode_detect.py` | AES-GCM `enc:v1` blobs from the local client | Python tests | `~/.zcode/v2/credentials.json` | not ported | PLANNED |
+| Import installed ZCode credentials | `credential_cipher.py`, `zcode_accounts.py` | AES-GCM `enc:v1` blobs from the local client. API keys and OAuth access tokens are not copied. Admin JSON shows a token hint | Python tests; `packages/pool/src/credentials.test.ts`; gateway import test | `~/.zcode/v2/credentials.json`, `ZCODE_CREDENTIAL_SECRET` | `POST /admin/accounts/import` | TESTED with a fixture key. A blob sealed on another machine stays sealed |
 | Relays | `relay_manager.py`, `relay_deploy.py` | Saved relay list, health checks, deploy helpers for the user's own Cloudflare, Vercel, Deno, or Netlify target | `tests/test_relays.py` | `generator-data/relays.json` | not ported | PLANNED |
 | Backup zip | `backup.py` | Export and restore local data | Python tests | runtime files | not ported | PLANNED |
 | Update check | `updater.py` | GitHub release badge | `tests/test_updater.py` | `update.repo` | not ported | PLANNED |

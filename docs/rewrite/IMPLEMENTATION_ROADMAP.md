@@ -8,7 +8,7 @@ The task board in `.agent/` is the schedule. This file is the map.
 | 1 Coordinator | Lease and recovery tests | `tools/coordinator`, tests green |
 | 2 Foundation | Electron, Vue, and Node launch | Node packages and a Vue project exist. A packaged double-click app does not |
 | 3 Gateway | Contract and streaming tests | Mock-upstream contracts pass, including park, rotate, no replay after content, and disconnect cancel. Live upstream was not called. The client still receives a buffered body |
-| 4 Accounts | Pool and storage tests | Snapshots, strategies, and usage rows. No quota polling, no credential import |
+| 4 Accounts | Pool and storage tests | Snapshots, strategies, usage rows, and `enc:v1` credential import. No quota polling. Device login is still open |
 | 5 Dashboard | Desktop journeys | Pages call the local API. Not exercised in a browser in this session |
 | 6 Automation | Supported browser flows | Signup, CAPTCHA, and claims are refused. No replacement browser flow yet |
 | 7 Migration | Import and rollback tests | Plan only |

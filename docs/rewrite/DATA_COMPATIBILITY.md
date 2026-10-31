@@ -12,7 +12,7 @@ Legacy files found in this working copy and in the source:
 | `pool.json` | Alternate account source | Not read yet |
 | `generator-data/` | Proxies, mail config, relays, generator results | Left untouched. Signup data is not imported |
 | `logs/` | Text and optional JSONL capture | Not imported |
-| `~/.zcode/v2/credentials.json` | Installed client credentials, sometimes `enc:v1` AES-GCM | Not imported yet. Documented key derivation is in `docs/PROTOCOL.md` |
+| `~/.zcode/v2/credentials.json` | Installed client credentials, sometimes `enc:v1` AES-GCM | `POST /admin/accounts/import` decrypts with `ZCODE_CREDENTIAL_SECRET` or the platform fallback key and writes `accounts/*.txt`. A key from another machine does not open the blob |
 
 Rules already followed:
 

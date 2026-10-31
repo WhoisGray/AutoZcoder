@@ -236,21 +236,21 @@ title: "Import the user's own ZCode credential file"
 phase: 4
 description: "Read ~/.zcode credentials, decrypt enc:v1 blobs only for the local user, and write account snapshots. Never log tokens."
 priority: medium
-status: READY
+status: DONE
 owner: null
 depends_on: ["AZC-022"]
 allowed_paths: ["packages/pool/"]
 acceptance_criteria: ["Round-trip test with a synthetic AES-GCM fixture","Tokens absent from logs"]
 test_commands: ["node --experimental-strip-types --test packages/pool/src/credentials.test.ts"]
-branch: null
-worktree: null
-last_commit: null
-attempts: 0
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: 6f801ec
+attempts: 1
 lease_expires_at: null
 created_at: 1793433286345
-updated_at: 1793433286345
+updated_at: 1793434961710
 blocking_reason: null
-tests_passed: false
+tests_passed: true
 ```
 
 ```yaml
