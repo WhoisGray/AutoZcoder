@@ -8,7 +8,7 @@ import { Account } from "../../../packages/pool/src/account.ts";
 import { PoolManager } from "../../../packages/pool/src/router.ts";
 import { Registry } from "../../../packages/protocols/src/registry.ts";
 import { createGateway, makeConfig } from "./server.ts";
-import { ChatService, type UpstreamClient, type UpstreamResponse } from "./service.ts";
+import { ChatService, quotaPark, type UpstreamClient, type UpstreamRequest, type UpstreamResponse } from "./service.ts";
 
 function sse(events: Record<string, unknown>[]): string {
   return events.map((event) => `event: ${(event as { type?: string }).type ?? "message"}\ndata: ${JSON.stringify(event)}\n\n`).join("");
@@ -33,7 +33,10 @@ function httpError(status: number, code: string, message: string): UpstreamRespo
   return { status, headers: {}, text: JSON.stringify({ error: { code, message } }) };
 }
 
-async function start(scripts: Array<(req: { body: any }) => UpstreamResponse>, options: { accounts?: Account[]; sleep?: () => Promise<void> } = {}) {
+async function start(
+  scripts: Array<(req: UpstreamRequest) => UpstreamResponse | Promise<UpstreamResponse>>,
+  options: { accounts?: Account[]; sleep?: () => Promise<void> } = {},
+) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "azc-gw-"));
   const account = new Account("usr-1");
   account.email = "one@example.test";
@@ -45,7 +48,7 @@ async function start(scripts: Array<(req: { body: any }) => UpstreamResponse>, o
       calls.push(request.body);
       const next = scripts.shift();
       if (!next) throw new Error("no scripted upstream response left");
-      return next(request);
+      return await next(request);
     },
   };
   const config = makeConfig({
@@ -258,5 +261,216 @@ test("count_tokens is a local estimate and malformed messages are 400", async ()
   );
   assert.equal(counted.status, 200);
   assert.equal(counted.json.input_tokens >= 1, true);
+  await gw.close();
+});
+
+function makeAccount(id: string, token: string, notes: Record<string, unknown> = {}) {
+  const account = new Account(id);
+  account.email = `${id}@example.test`;
+  account.accessToken = token;
+  account.notes = notes;
+  return account;
+}
+
+function messageStart() {
+  return { type: "message_start", message: { id: "msg_1", type: "message", role: "assistant", model: "GLM-5.3", content: [], stop_reason: null, usage: { input_tokens: 2, output_tokens: 0 } } };
+}
+
+test("quota rejection parks that model and the same request rotates", async () => {
+  const first = makeAccount("usr-1", "secret-token-zzzz", { quotas: { "GLM-5.3": { remaining: 50, resets_at: 10_000_000 } } });
+  const second = makeAccount("usr-2", "secret-token-9999");
+  const gw = await start([() => httpError(402, "11113", "exceed quota limit"), () => reply("from-two")], { accounts: [first, second] });
+  const response = await post(gw.base, "/v1/chat/completions", { model: "GLM-5.3", messages: [{ role: "user", content: "hi" }] }, "client-test-key");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.choices[0].message.content, "from-two");
+  assert.equal(gw.calls.length, 2);
+  assert.equal(first.state, "ready");
+  assert.equal(first.isModelCapped("GLM-5.3"), true);
+  assert.equal(first.isModelCapped("GLM-5.3-Flash"), false);
+  const parkedFor = (first.modelCaps["GLM-5.3"] ?? 0) - Date.now() / 1000;
+  assert.ok(parkedFor > 500 && parkedFor < 700);
+  assert.equal(JSON.stringify(response.json).includes("secret-token"), false);
+  await gw.close();
+});
+
+test("quota park duration follows the bucket reset or exhausts an empty ledger", () => {
+  const spent = new Account("spent");
+  spent.notes = { quotas: { "GLM-5.3": { remaining: 0, resets_at: 1_000_000 } } };
+  const untilReset = quotaPark(spent, "GLM-5.3", 1_000_000 - 7200);
+  assert.equal(untilReset.action, "park");
+  if (untilReset.action === "park") assert.ok(Math.abs(untilReset.seconds - 7200) < 1);
+  const empty = new Account("empty");
+  empty.notes = { quotas: {} };
+  assert.deepEqual(quotaPark(empty, "GLM-5.3"), { action: "park", seconds: 900 });
+  assert.deepEqual(quotaPark(empty, "GLM-5.3-Flash"), { action: "park", seconds: 900 });
+  assert.deepEqual(quotaPark(empty, "GLM-5.3"), { action: "exhaust" });
+  assert.equal(empty.quotaStrikes, 3);
+});
+
+test("a streaming failure after output is not replayed", async () => {
+  const partial: UpstreamResponse = {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
+    text: sse([
+      messageStart(),
+      { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Hello" } },
+    ]),
+  };
+  const gw = await start([() => partial, () => reply("should-not-run")]);
+  const response = await post(
+    gw.base,
+    "/v1/chat/completions",
+    { model: "GLM-5.3-Flash", stream: true, messages: [{ role: "user", content: "hi" }] },
+    "client-test-key",
+  );
+  assert.equal(gw.calls.length, 1);
+  assert.equal(response.status, 502);
+  assert.equal(response.json.error.code, "truncated_stream");
+  await gw.close();
+});
+
+test("truncation before content is retried and an error after message_start is not", async () => {
+  const prelude: UpstreamResponse = {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
+    text: sse([messageStart()]),
+  };
+  const recovered = await start([() => prelude, () => reply("recovered")]);
+  const ok = await post(
+    recovered.base,
+    "/v1/chat/completions",
+    { model: "GLM-5.3-Flash", stream: true, messages: [{ role: "user", content: "hi" }] },
+    "client-test-key",
+  );
+  assert.equal(recovered.calls.length, 2);
+  assert.match(ok.text, /recovered/);
+  await recovered.close();
+
+  const errored: UpstreamResponse = {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
+    text: sse([messageStart(), { type: "error", error: { type: "api_error", message: "oops" } }]),
+  };
+  const failed = await start([() => errored, () => reply("should-not-run")]);
+  const response = await post(
+    failed.base,
+    "/v1/chat/completions",
+    { model: "GLM-5.3-Flash", stream: true, messages: [{ role: "user", content: "hi" }] },
+    "client-test-key",
+  );
+  assert.equal(failed.calls.length, 1);
+  assert.equal(response.status, 502);
+  assert.match(response.json.error.message, /oops/);
+  await failed.close();
+});
+
+test("non-streaming truncation after content is retried because the client saw nothing", async () => {
+  const partial: UpstreamResponse = {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
+    text: sse([
+      messageStart(),
+      { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Hello" } },
+    ]),
+  };
+  const gw = await start([() => partial, () => reply("full")]);
+  try {
+    const response = await post(gw.base, "/v1/chat/completions", { model: "GLM-5.3-Flash", messages: [{ role: "user", content: "hi" }] }, "client-test-key");
+    assert.equal(gw.calls.length, 2);
+    assert.equal(response.status, 200);
+    assert.equal(response.json.choices[0].message.content, "full");
+  } finally {
+    await gw.close();
+  }
+});
+
+test("an initial quota event rotates and a JSON business error does too", async () => {
+  const first = makeAccount("usr-1", "secret-token-zzzz");
+  const second = makeAccount("usr-2", "secret-token-9999");
+  const gw = await start(
+    [
+      () => ({
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+        text: sse([{ type: "error", error: { code: "11113", message: "Insufficient balance" } }]),
+      }),
+      () => reply("rotated"),
+    ],
+    { accounts: [first, second] },
+  );
+  const streamed = await post(gw.base, "/v1/chat/completions", { model: "GLM-5.3", messages: [{ role: "user", content: "hi" }] }, "client-test-key");
+  assert.equal(streamed.json.choices[0].message.content, "rotated");
+  assert.equal(first.isModelCapped("GLM-5.3"), true);
+  assert.equal(gw.calls.length, 2);
+  await gw.close();
+
+  const again = await start(
+    [
+      () => ({ status: 200, headers: { "content-type": "application/json" }, text: JSON.stringify({ code: 11113, msg: "Insufficient balance" }) }),
+      () => reply("from-json"),
+    ],
+    { accounts: [makeAccount("usr-1", "secret-token-zzzz"), makeAccount("usr-2", "secret-token-9999")] },
+  );
+  const json = await post(again.base, "/v1/chat/completions", { model: "GLM-5.3", messages: [{ role: "user", content: "hi" }] }, "client-test-key");
+  assert.equal(json.json.choices[0].message.content, "from-json");
+  assert.equal(again.calls.length, 2);
+  await again.close();
+});
+
+test("disconnect during overload backoff sends no further request", async () => {
+  const controller = new AbortController();
+  const gw = await start([() => httpError(529, "1305", "overloaded"), () => reply("should-not")], {
+    sleep: async () => {
+      controller.abort();
+    },
+  });
+  const result = await gw.service.execute(
+    { model: "GLM-5.3-Flash", messages: [{ role: "user", content: "hi" }] },
+    "GLM-5.3-Flash",
+    "openai",
+    "local",
+    { signal: controller.signal },
+  );
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.code, "client_disconnected");
+  assert.equal(gw.calls.length, 1);
+  assert.equal(gw.service.pool.accounts[0]!.inFlight, 0);
+  assert.equal(gw.service.pool.accounts[0]!.state, "ready");
+  await gw.close();
+});
+
+test("a disconnected client cancels the upstream attempt and releases the account", async () => {
+  const gw = await start([
+    (request) =>
+      new Promise((resolve, reject) => {
+        const timer = setTimeout(() => resolve(reply("late")), 5000);
+        const abort = () => {
+          clearTimeout(timer);
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          reject(error);
+        };
+        if (request.signal?.aborted) abort();
+        else request.signal?.addEventListener("abort", abort, { once: true });
+      }),
+  ]);
+  const controller = new AbortController();
+  const pending = fetch(`${gw.base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: "Bearer client-test-key" },
+    body: JSON.stringify({ model: "GLM-5.3-Flash", messages: [{ role: "user", content: "hi" }] }),
+    signal: controller.signal,
+  });
+  const started = Date.now();
+  while (gw.calls.length < 1 && Date.now() - started < 2000) await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(gw.calls.length, 1);
+  controller.abort();
+  await pending.catch(() => undefined);
+  const released = Date.now();
+  while (gw.service.pool.accounts[0]!.inFlight !== 0 && Date.now() - released < 1000) await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(gw.service.pool.accounts[0]!.inFlight, 0);
+  assert.equal(gw.service.pool.accounts[0]!.state, "ready");
   await gw.close();
 });

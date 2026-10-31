@@ -39,7 +39,7 @@ Python stays in the tree until the rewrite covers the supported features and the
 6. OpenAI clients receive translated chunks, or one aggregated completion. Anthropic clients receive the accumulated message.
 7. A usage row is written. Public account views keep only a token hint.
 
-The current gateway reads the upstream body to completion before it writes the client response. That preserves status codes for pre-output failures. Chunk-by-chunk client streaming and disconnect cancellation are still open under task `AZC-030`.
+The gateway reads the upstream body to completion before it writes the client response. That preserves status codes for failures that happen before any content event. A streaming client does not get a second upstream call after content has started. A non-streaming client can still be retried, because nothing was written yet. If the client disconnects during the upstream call or an overload wait, the attempt is cancelled and the account reservation is released. Bytes are not forwarded to the client as they arrive.
 
 ## Not adopted
 

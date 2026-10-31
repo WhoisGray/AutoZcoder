@@ -213,21 +213,21 @@ title: "Quota parking, rotation, and disconnect handling"
 phase: 3
 description: "Match per-model park behavior for 405/3012, 402/11113, and 429, and stop retries after client-visible output."
 priority: medium
-status: READY
+status: DONE
 owner: null
 depends_on: ["AZC-023"]
 allowed_paths: ["apps/gateway/","packages/pool/"]
 acceptance_criteria: ["Gateway tests cover park, rotate, and no-retry-after-output"]
 test_commands: ["node --experimental-strip-types --test apps/gateway/src/server.test.ts"]
-branch: null
-worktree: null
-last_commit: null
-attempts: 0
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: af2d7f2
+attempts: 1
 lease_expires_at: null
 created_at: 1793433286345
-updated_at: 1793433286345
+updated_at: 1793434655795
 blocking_reason: null
-tests_passed: false
+tests_passed: true
 ```
 
 ```yaml

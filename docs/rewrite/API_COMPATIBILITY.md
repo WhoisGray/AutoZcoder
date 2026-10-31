@@ -31,4 +31,4 @@ Error bodies:
 - Anthropic routes use `{type:"error",error:{type,message,code}}`.
 - Admin routes use `{detail}` for auth failures, matching the dashboard's reader.
 
-Streaming compatibility is partial. OpenAI `data:` frames are produced from a fully buffered upstream read. Disconnects do not yet cancel the upstream call. Anthropic SSE on the wire for `stream:true` is rebuilt from the accumulator, so thinking signatures and extra event types can be dropped. That gap is tracked with the rest of `AZC-030`.
+Streaming compatibility is partial. OpenAI `data:` frames are produced from a fully buffered upstream read. A client disconnect aborts that read and releases the account, and a stream that already contained content is not replayed. Anthropic SSE on the wire for `stream:true` is rebuilt from the accumulator, so thinking signatures and extra event types can be dropped. Bytes are not forwarded as they arrive.

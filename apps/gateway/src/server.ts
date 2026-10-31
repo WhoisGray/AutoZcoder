@@ -245,7 +245,20 @@ export function createGateway(app: GatewayApp) {
         }
         const model = service.registry.resolve(chatBody.model, dialect);
         const payload = dialect === "anthropic" ? { model, _anthropic: { ...chatBody, model } } : { ...chatBody, model };
-        const result = await service.execute(payload, model, dialect, auth);
+        const controller = new AbortController();
+        const onClientGone = () => {
+          if (!res.writableFinished) controller.abort();
+        };
+        res.on("close", onClientGone);
+        const result = await service.execute(payload, model, dialect, auth, {
+          stream: Boolean(chatBody.stream),
+          signal: controller.signal,
+        });
+        res.off("close", onClientGone);
+        if (controller.signal.aborted || (!result.ok && result.code === "client_disconnected")) {
+          res.destroy();
+          return;
+        }
         if (!result.ok) return sendJson(res, result.status, failureBody(dialect, result));
         const wantsStream = Boolean(chatBody.stream);
         if (!wantsStream && path !== "/v1/completions") {

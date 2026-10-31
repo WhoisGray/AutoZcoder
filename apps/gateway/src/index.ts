@@ -44,6 +44,7 @@ async function main() {
         method: "POST",
         headers: request.headers,
         body: JSON.stringify(request.body),
+        signal: request.signal,
       });
       return {
         status: response.status,

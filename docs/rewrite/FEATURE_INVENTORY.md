@@ -13,9 +13,10 @@ Source of truth: the Python tree on `master` at `f06d5ff`, inspected in this wor
 | Model list | `registry.py`, `api_openai.py` | `GLM-5.3` and `GLM-5.3-Flash`, plus aliases | rewrite gateway test | `models.aliases` | `packages/protocols/src/registry.ts` | TESTED |
 | Anthropic messages | `api_anthropic.py`, `translate_anthropic.py` | Native body is preserved, bootstrap system blocks are added, non-stream returns a message | `tests/test_translate_anthropic.py`; rewrite tests | same | protocol + gateway | TESTED against a mock |
 | Token count | `api_anthropic.py` | Local estimate, about 4 characters per token. Upstream has no counter | rewrite gateway test | none | gateway | TESTED |
-| Streaming frames | `service.py`, `aggregate.py` | Anthropic events become OpenAI chunks. `[DONE]` closes the OpenAI stream | `tests/test_stream_retry.py`; rewrite stream test | none | gateway | TESTED for the buffered path |
-| Overload retry | `model_retry.py`, `service.py` | HTTP 529 / code 1305 retries before output, capped delay | `tests/test_model_retry.py`; rewrite test | `upstream.overload_*` | `packages/protocols/src/retry.ts` | TESTED |
-| Unusual activity park | `pool.py`, `service.py`, `docs/UNUSUAL-ACTIVITY.md` | 405 / code 3012 parks that model on that account only | `tests/test_model_caps_persist.py`; rewrite test | `pool.blocked_model_cooldown_seconds`, `model-caps.json` | in-memory park. Disk persistence is not ported | TESTED in memory |
+| Streaming frames | `service.py`, `aggregate.py` | Anthropic events become OpenAI chunks. `[DONE]` closes the OpenAI stream. A cut after content is not replayed; a cut before content is retried | `tests/test_stream_retry.py`; rewrite stream tests | none | gateway | TESTED for the buffered path |
+| Overload retry | `model_retry.py`, `service.py` | HTTP 529 / code 1305 retries before output, capped delay. A client disconnect during the wait stops the next attempt | `tests/test_model_retry.py`; rewrite test | `upstream.overload_*` | `packages/protocols/src/retry.ts` | TESTED |
+| Unusual activity park | `pool.py`, `service.py`, `docs/UNUSUAL-ACTIVITY.md` | 405 / code 3012 parks that model on that account only and the request rotates | `tests/test_model_caps_persist.py`; rewrite test | `pool.blocked_model_cooldown_seconds`, `model-caps.json` | in-memory park. Disk persistence is not ported | TESTED in memory |
+| Quota park and rotation | `service.py`, `pool.py` | 402 / 11113 / 1005 parks that model until its reset, for 600s when the ledger still shows balance, or exhausts the account after three empty-ledger strikes. The same request uses the next account | `tests/test_zcode_core.py`, `tests/test_hardening_round.py`; rewrite gateway tests | in-memory caps | gateway `quotaPark` | TESTED against a mock |
 | Auth | `deps.py` | Client key or admin key. Missing key is 401 in the caller's dialect. No CORS middleware | `tests/test_auth_and_complete.py`; rewrite test | `server.client_keys`, `server.admin_key` | gateway | TESTED |
 | Health, ready, metrics | `api_health.py` | `/ready` is 503 when no account is usable | rewrite test | `gateway.db` | gateway + `UsageStore` | TESTED |
 | Usage ledger | `store.py` | SQLite `usage` table and summary | rewrite `store.test.ts` | `store.sqlite_path` | `packages/database` | TESTED |
@@ -54,7 +55,9 @@ The existing `mail-worker/` template stays in the repository for people who alre
 
 - OpenAI and Anthropic clients can call the local port with the client key.
 - A mock upstream Anthropic stream becomes an OpenAI completion and an Anthropic message.
-- A 529 before output is retried.
+- A 529 before output is retried. A disconnect during that wait does not send another request.
 - A 405/3012 parks only the requested model.
+- A 402/11113 parks only the requested model and the same call rotates to the next account.
+- A stream that already contained content is not replayed. A stream that died on `message_start` is retried.
 - Admin account JSON does not contain the full access token.
 - Claim and generator routes return 410.
