@@ -4,6 +4,7 @@
  * Usage: node tools/coordinator/board.mjs <command> [args]
  */
 import { execSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Coordinator, SEED_TASKS } from "./lib.mjs";
@@ -44,6 +45,10 @@ try {
   switch (command) {
     case "init":
     case "seed": {
+      const saved = path.join(root, ".agent", "board.json");
+      if (board.list().length === 0 && fs.existsSync(saved)) {
+        board.restore(JSON.parse(fs.readFileSync(saved, "utf8")));
+      }
       board.seed(SEED_TASKS);
       const snap = board.snapshot(gitInfo());
       console.log(`seeded ${board.list().length} tasks; next=${snap.next ?? "none"}`);

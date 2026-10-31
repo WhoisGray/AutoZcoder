@@ -188,6 +188,60 @@ export class Coordinator {
     return this.list();
   }
 
+  /**
+   * Restore a committed snapshot into an empty database.
+   * The runtime SQLite file is gitignored, so a fresh checkout must be able
+   * to recover DONE/READY from `.agent/board.json` without reopening work.
+   */
+  restore(tasks) {
+    if (this.list().length > 0) return this.list();
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      for (const spec of tasks) {
+        const ts = spec.created_at ?? now();
+        this.db
+          .prepare(
+            `INSERT INTO tasks (
+              id, title, phase, description, priority, status, owner, depends_on,
+              allowed_paths, acceptance_criteria, test_commands, branch, worktree,
+              last_commit, attempts, lease_expires_at, created_at, updated_at,
+              blocking_reason, objective, tests_passed, test_summary
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            spec.id,
+            spec.title,
+            spec.phase,
+            spec.description ?? "",
+            spec.priority ?? "medium",
+            spec.status ?? "READY",
+            spec.owner ?? null,
+            JSON.stringify(spec.depends_on ?? []),
+            JSON.stringify(spec.allowed_paths ?? []),
+            JSON.stringify(spec.acceptance_criteria ?? []),
+            JSON.stringify(spec.test_commands ?? []),
+            spec.branch ?? null,
+            spec.worktree ?? null,
+            spec.last_commit ?? null,
+            spec.attempts ?? 0,
+            spec.lease_expires_at ?? null,
+            ts,
+            spec.updated_at ?? ts,
+            spec.blocking_reason ?? null,
+            spec.objective ?? null,
+            spec.tests_passed ? 1 : 0,
+            spec.test_summary ?? null,
+          );
+      }
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+    this._event("restore", null, null, `${tasks.length} tasks`);
+    return this.list();
+  }
+
   get(id) {
     return rowToTask(this.db.prepare("SELECT * FROM tasks WHERE id = ?").get(id));
   }
@@ -499,6 +553,7 @@ export class Coordinator {
     atomicWrite(path.join(this.agentDir, "TASKS.md"), `# Tasks\n\n${taskDump}`);
     atomicWrite(path.join(this.agentDir, "STATE.md"), state);
     atomicWrite(path.join(this.agentDir, "RESUME.md"), resume);
+    atomicWrite(path.join(this.agentDir, "board.json"), `${JSON.stringify(tasks, null, 2)}\n`);
     return { counts, doing: doing.map((task) => task.id), next: next?.id ?? null };
   }
 }

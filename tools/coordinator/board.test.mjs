@@ -121,6 +121,26 @@ test("snapshot writes the resume contract and recovery does not complete work", 
   board.close();
 });
 
+test("an empty database restores DONE tasks from the committed snapshot", () => {
+  const { root, board } = tempBoard();
+  board.claim({ id: "AZC-001", owner: "alpha" });
+  board.review("AZC-001", { testsPassed: true, summary: "ok" });
+  board.done("AZC-001");
+  board.snapshot({ branch: "rewrite/electron-vue-node", commit: "abc", dirty: "clean" });
+  const saved = JSON.parse(fs.readFileSync(path.join(root, ".agent", "board.json"), "utf8"));
+  board.close();
+  fs.rmSync(path.join(root, ".agent", "runtime"), { recursive: true, force: true });
+  const restored = new Coordinator(root);
+  restored.restore(saved);
+  restored.seed([
+    { id: "AZC-001", phase: 0, priority: "high", title: "First", description: "base" },
+    { id: "AZC-003", phase: 2, priority: "low", title: "Third", description: "new" },
+  ]);
+  assert.equal(restored.get("AZC-001").status, "DONE");
+  assert.equal(restored.get("AZC-003").status, "READY");
+  restored.close();
+});
+
 test("same owner can refresh an unexpired lease", () => {
   const { board } = tempBoard();
   board.claim({ id: "AZC-001", owner: "alpha", ttlMs: 60_000 });
