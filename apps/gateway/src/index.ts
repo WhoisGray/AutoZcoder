@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { UsageStore } from "../../../packages/database/src/store.ts";
 import { loadAccountsDir } from "../../../packages/pool/src/snapshots.ts";
 import { PoolManager } from "../../../packages/pool/src/router.ts";
@@ -61,7 +62,7 @@ async function main() {
   console.log(`admin key hint …${config.adminKey.slice(-4)} (set AZC_ADMIN_KEY to choose one)`);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;

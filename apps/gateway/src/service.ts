@@ -62,6 +62,8 @@ export interface GatewayConfig {
   defaultMaxTokens: number;
   defaultEffort: string;
   fingerprint: Fingerprint;
+  /** Abort one upstream attempt after this many milliseconds. */
+  upstreamTimeoutMs: number;
   pool: PoolOptions;
 }
 
@@ -219,20 +221,32 @@ export class ChatService {
         deviceMid: account.notes.device_mid || undefined,
       });
       let response: UpstreamResponse;
+      const timeout = new AbortController();
+      const timer = setTimeout(() => timeout.abort(), this.config.upstreamTimeoutMs);
+      const signal = options.signal ? AbortSignal.any([options.signal, timeout.signal]) : timeout.signal;
       try {
         response = await this.upstream.send({
           url: `${this.config.upstreamBaseUrl.replace(/\/$/, "")}${this.config.chatPath}`,
           headers,
           body,
-          signal: options.signal,
+          signal,
         });
       } catch (error) {
         this.pool.release(account);
+        if (options.signal?.aborted) return clientDisconnected();
+        if (timeout.signal.aborted) {
+          this.pool.cool(account, this.config.pool.cooldownSeconds ?? 30, "upstream timed out");
+          excluded.add(account.id);
+          last = { ok: false, status: 504, code: "upstream_timeout", message: "upstream timed out" };
+          continue;
+        }
         if (isClientAbort(error, options.signal)) return clientDisconnected();
         this.pool.cool(account, this.config.pool.cooldownSeconds ?? 30, "transport");
         excluded.add(account.id);
         last = { ok: false, status: 502, code: "transport", message: error instanceof Error ? error.message : "upstream transport error" };
         continue;
+      } finally {
+        clearTimeout(timer);
       }
       const envelope = response.status === 200 && looksLikeJsonEnvelope(response) ? parseUpstreamError(200, response.text) : null;
       const status = envelope
@@ -331,7 +345,7 @@ export class ChatService {
         openaiCompletion: aggregateOpenaiStream(openaiSse, model, `chatcmpl-${randomUUID().replace(/-/g, "").slice(0, 24)}`),
       };
     }
-    if (last.code === "no_accounts_available" || excluded.size > 0 && last.status >= 500) {
+    if (last.code !== "upstream_timeout" && (last.code === "no_accounts_available" || (excluded.size > 0 && last.status >= 500))) {
       const ready = this.pool.readyCount();
       if (ready === 0) return { ok: false, status: 503, code: "no_accounts_available", message: "no usable Zcode account in the pool" };
     }
@@ -444,6 +458,7 @@ export function makeConfig(overrides: Partial<GatewayConfig> = {}): GatewayConfi
     overloadMaxDelaySeconds: 60,
     defaultMaxTokens: 128000,
     defaultEffort: "high",
+    upstreamTimeoutMs: 600_000,
     fingerprint: defaultFingerprint(),
     pool: { strategy: "drain_first", maxInFlightPerAccount: 4, cooldownSeconds: 30, blockedModelCooldownSeconds: 900, acquireWaitSeconds: 0 },
     ...overrides,

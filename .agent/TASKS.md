@@ -374,21 +374,21 @@ title: "Failure injection and measured performance"
 phase: 8
 description: "Exercise upstream timeout, worker crash, and unclean SQLite shutdown. Record only measurements that were actually taken."
 priority: medium
-status: READY
+status: DONE
 owner: null
 depends_on: ["AZC-023","AZC-030"]
 allowed_paths: ["apps/gateway/","docs/rewrite/PERFORMANCE_RESULTS.md"]
 acceptance_criteria: ["PERFORMANCE_RESULTS.md contains real numbers or an explicit not-measured marker"]
 test_commands: ["node --experimental-strip-types --test apps/gateway/src/failure.test.ts"]
-branch: null
-worktree: null
-last_commit: null
-attempts: 0
+branch: rewrite/electron-vue-node
+worktree: /Users/paliz/Downloads/هحسثززز/zcode
+last_commit: 29c4d70
+attempts: 1
 lease_expires_at: null
 created_at: 1793433286345
-updated_at: 1793433286345
+updated_at: 1793437552258
 blocking_reason: null
-tests_passed: false
+tests_passed: true
 ```
 
 ```yaml
