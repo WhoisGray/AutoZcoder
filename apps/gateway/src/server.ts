@@ -17,6 +17,25 @@ const SSE_HEADERS = {
   "x-accel-buffering": "no",
 };
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const CORS_ALLOW_HEADERS = "authorization, content-type, anthropic-version, x-api-key";
+
+/** Browser Origin that is exactly loopback http. Foreign and wildcard origins are rejected. */
+function loopbackOrigin(value: string | undefined): string | null {
+  if (!value) return null;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:") return null;
+  if (url.username || url.password) return null;
+  if (url.pathname !== "/" || url.search || url.hash) return null;
+  if (!LOOPBACK_HOSTS.has(url.hostname.toLowerCase())) return null;
+  return url.origin;
+}
+
 const UNSUPPORTED = [
   /^\/admin\/accounts\/[^/]+\/claim(?:100m|500m|_start)$/,
   /^\/admin\/claims(?:\/|$)/,
@@ -41,12 +60,22 @@ function bearer(req: IncomingMessage): string {
 
 function sendJson(res: ServerResponse, status: number, body: unknown) {
   const payload = JSON.stringify(body);
-  res.writeHead(status, {
-    "content-type": "application/json; charset=utf-8",
-    "content-length": Buffer.byteLength(payload),
-    "cache-control": "no-store",
-  });
+  res.statusCode = status;
+  res.setHeader("content-type", "application/json; charset=utf-8");
+  res.setHeader("content-length", Buffer.byteLength(payload));
+  res.setHeader("cache-control", "no-store");
   res.end(payload);
+}
+
+function allowLoopbackPage(req: IncomingMessage, res: ServerResponse): boolean {
+  const origin = loopbackOrigin(typeof req.headers.origin === "string" ? req.headers.origin : undefined);
+  if (!origin) return false;
+  res.setHeader("access-control-allow-origin", origin);
+  res.setHeader("vary", "Origin");
+  res.setHeader("access-control-allow-methods", "GET, POST, OPTIONS");
+  res.setHeader("access-control-allow-headers", CORS_ALLOW_HEADERS);
+  res.setHeader("access-control-max-age", "600");
+  return true;
 }
 
 async function readJson(req: IncomingMessage): Promise<unknown> {
@@ -103,6 +132,12 @@ export function createGateway(app: GatewayApp) {
   return createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
     const path = url.pathname;
+    const loopbackPage = allowLoopbackPage(req, res);
+    if (req.method === "OPTIONS") {
+      res.statusCode = loopbackPage ? 204 : 403;
+      res.end();
+      return;
+    }
     try {
       if (UNSUPPORTED.some((pattern) => pattern.test(path))) {
         sendJson(res, 410, openaiError(410, "feature_not_supported", UNSUPPORTED_FEATURE_MESSAGE));
@@ -363,7 +398,8 @@ export function createGateway(app: GatewayApp) {
           });
           return;
         }
-        res.writeHead(200, SSE_HEADERS);
+        res.statusCode = 200;
+        for (const [name, value] of Object.entries(SSE_HEADERS)) res.setHeader(name, value);
         if (dialect === "anthropic") {
           res.end(anthropicSse(result.anthropic));
           return;

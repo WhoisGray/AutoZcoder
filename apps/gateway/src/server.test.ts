@@ -199,6 +199,44 @@ test("overload before output is retried and unusual activity parks only that mod
   await gw.close();
 });
 
+test("loopback dashboard origins can read health and foreign origins cannot", async () => {
+  const gw = await start([]);
+  try {
+    const local = await fetch(`${gw.base}/health`, { headers: { origin: "http://localhost:5173" } });
+    assert.equal(local.status, 200);
+    assert.equal(local.headers.get("access-control-allow-origin"), "http://localhost:5173");
+    assert.equal((await local.json()).status, "ok");
+    const ipv4 = await fetch(`${gw.base}/ready`, { headers: { origin: "http://127.0.0.1:5173" } });
+    assert.equal(ipv4.headers.get("access-control-allow-origin"), "http://127.0.0.1:5173");
+    const ipv6 = await fetch(`${gw.base}/health`, { headers: { origin: "http://[::1]:5173" } });
+    assert.equal(ipv6.headers.get("access-control-allow-origin"), "http://[::1]:5173");
+    const preflight = await fetch(`${gw.base}/admin/accounts`, {
+      method: "OPTIONS",
+      headers: {
+        origin: "http://127.0.0.1:5173",
+        "access-control-request-method": "GET",
+        "access-control-request-headers": "authorization,content-type",
+      },
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get("access-control-allow-origin"), "http://127.0.0.1:5173");
+    assert.match(preflight.headers.get("access-control-allow-headers") ?? "", /authorization/);
+    const foreign = await fetch(`${gw.base}/health`, { headers: { origin: "https://evil.example" } });
+    assert.equal(foreign.status, 200);
+    assert.equal(foreign.headers.get("access-control-allow-origin"), null);
+    const foreignPreflight = await fetch(`${gw.base}/health`, {
+      method: "OPTIONS",
+      headers: { origin: "https://evil.example", "access-control-request-method": "POST" },
+    });
+    assert.equal(foreignPreflight.status, 403);
+    assert.equal(foreignPreflight.headers.get("access-control-allow-origin"), null);
+    const dotted = await fetch(`${gw.base}/health`, { headers: { origin: "http://evil.localhost:5173" } });
+    assert.equal(dotted.headers.get("access-control-allow-origin"), null);
+  } finally {
+    await gw.close();
+  }
+});
+
 test("empty pool is not ready, claim routes are gone, and admin views hide tokens", async () => {
   const gw = await start([], { accounts: [] });
   const ready = await fetch(`${gw.base}/ready`);
