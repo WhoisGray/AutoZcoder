@@ -9,7 +9,7 @@ rewrite/electron-vue-node
 Active worktree:
 /Users/paliz/Downloads/هحسثززز/zcode
 Last successful commit:
-e4e9368
+d4d2bca
 Last passing tests:
 AZC-023: gateway server.test.ts passed; npm test 29 passed, 0 failed
 AZC-030: npm test 38 passed, 0 failed, duration_ms 207.56, Node v24.22.1
@@ -22,7 +22,7 @@ AZC-100: rewrite job added to .github/workflows/ci.yml; GitHub has not run it
 Known failures:
 none
 Uncommitted changes:
-15 path(s) dirty
+clean
 Recovery instructions:
 1. Read .agent/AGENTS.md, .agent/STATE.md and this file. 2. Open .agent/runtime/board.db with tools/coordinator/board.mjs. 3. Run `node tools/coordinator/board.mjs release-expired`. 4. Run `node tools/coordinator/board.mjs recover`. 5. Claim the highest READY task whose dependencies are DONE. 6. Do not mark a task DONE without a recorded passing test.
 Next executable action:
