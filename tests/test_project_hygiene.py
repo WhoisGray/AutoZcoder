@@ -87,7 +87,6 @@ def test_frozen_macos_terminal_binary_keeps_data_beside_the_file(tmp_path, monke
 def test_macos_per_user_dir_uses_application_support(monkeypatch):
     from zcode_gateway import paths
     monkeypatch.setattr(paths.sys, "platform", "darwin")
-    monkeypatch.setattr(paths.os, "name", "posix")
     assert paths._per_user_dir() == paths.Path.home() / "Library" / "Application Support" / "ZcodeGateway"
 
 

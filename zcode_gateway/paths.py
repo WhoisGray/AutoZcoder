@@ -102,7 +102,9 @@ def default_config_yaml() -> str:
 def _per_user_dir() -> Path:
     """Per-user data dir when the binary's folder is not writable
     (Program Files, /Applications, corporate lockdowns)."""
-    if os.name == "nt":
+    # Branch on sys.platform only. Patching os.name to pretend this is
+    # macOS makes pathlib construct a PosixPath, which Windows refuses.
+    if sys.platform == "win32":
         local = os.environ.get("LOCALAPPDATA", str(Path.home()))
         return Path(local) / "ZcodeGateway"
     if sys.platform == "darwin":
