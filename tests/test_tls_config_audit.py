@@ -184,3 +184,22 @@ def test_gui_main_uses_child_connection_for_all_urls(monkeypatch, tmp_path, alre
     else:
         assert calls == [("ready", origin + "/dash", context), ("window", origin + "/dash"),
                          ("shutdown",), ("exit", 0)]
+
+
+def test_gui_main_does_not_open_a_foreign_listener_when_dash_never_starts(monkeypatch, tmp_path):
+    cfg = Config()
+    monkeypatch.setattr("zcode_gateway.config.load_config", lambda _: cfg)
+    monkeypatch.setattr(gui_main, "_fix_streams", lambda: None)
+    monkeypatch.setattr(gui_main, "_already_running", lambda: False)
+    monkeypatch.setattr(sys, "argv", ["gui_main.py", "--config", str(tmp_path / "config.yaml")])
+    monkeypatch.setattr(gui_main, "_gateway_context", lambda ca: None)
+    notes = []
+    opened = []
+    monkeypatch.setattr(gui_main, "_notify", notes.append)
+    monkeypatch.setattr(gui_main.webbrowser, "open", lambda url: opened.append(url))
+    monkeypatch.setattr(gui_main, "_wait_for", lambda url, **kwargs: False)
+    monkeypatch.setattr(gui_main.threading, "Thread", lambda **kwargs: SimpleNamespace(start=lambda: None))
+    gui_main.main()
+    assert opened == []
+    assert notes and "did not start" in notes[0]
+    assert "127.0.0.1:8788/dash" in notes[0]

@@ -195,14 +195,15 @@ def _run_server() -> None:
             print(f"[watchdog] uvicorn exited with {exc!r} "
                   f"(port in use?)", file=sys.stderr, flush=True)
         except Exception:
-            pass
+            import traceback
+            traceback.print_exc(file=sys.stderr)
         attempts += 1
         now = time.time()
         print(f"[watchdog] gateway crashed ({_dt.datetime.now():%H:%M:%S}) "
               f"attempt {attempts}", file=sys.stderr, flush=True)
         if attempts >= 5 or now - first_start > 600:
             print("[watchdog] giving up", file=sys.stderr, flush=True)
-            raise
+            return
         time.sleep(min(2 ** attempts, 15))
 
 
@@ -316,13 +317,22 @@ def main() -> None:
                 "Close it first, then start this one.")
         return
 
-    import webview
-
     threading.Thread(target=_run_server, daemon=True, name="gateway").start()
     browser_fallback = False
     if not _wait_for(url, context=context):
-        browser_fallback = True   # serve in the browser; keep the process (and the gateway thread) alive
-    elif sys.platform == "win32" and not _webview2_available():
+        # The port is taken, or the server died. Opening the browser here
+        # shows whatever else is bound, which is not this dashboard.
+        _notify(
+            "Zcode Gateway did not start.\n\n"
+            f"The dashboard is not available at {url}.\n"
+            "Another program is already using that port, or the server "
+            "stopped while starting.\n\n"
+            "Quit the other program, then open Zcode Gateway again.")
+        return
+
+    import webview
+
+    if sys.platform == "win32" and not _webview2_available():
         # native window impossible on this machine: install prompt + browser
         browser_fallback = _offer_webview2_or_browser(url)
     else:
