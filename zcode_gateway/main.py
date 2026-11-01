@@ -53,7 +53,8 @@ def main(argv: list[str] | None = None) -> int:
 
     app = create_app(cfg)
     uvicorn.run(app, host=host, port=port, log_level="info",
-                **({"timeout_graceful_shutdown": 10} if sys.platform.startswith("linux") else {}),
+                **({"timeout_graceful_shutdown": 10}
+                   if sys.platform.startswith("linux") or sys.platform == "darwin" else {}),
                 **cfg.server.ssl_kwargs())
     return 0
 

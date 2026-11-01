@@ -5,6 +5,7 @@ from pathlib import Path
 import socket
 import subprocess
 import shutil
+import sys
 import time
 
 import httpx
@@ -29,14 +30,25 @@ def main():
         "generator": {"enabled": True},
     }))
     log_path = root / "frozen.log"
+    # The Mac build is the desktop entry (gui_main). --headless keeps this
+    # sandbox on the server path. The Linux build is already a server and
+    # rejects unknown arguments. Keep the child's stdout on this pipe.
+    command = [binary]
+    if os.name == "nt" or sys.platform == "darwin":
+        command.append("--headless")
+    command += ["--config", str(config)]
+    child_env = os.environ.copy()
+    child_env["ZCODE_GATEWAY_FOREGROUND_LOG"] = "1"
     with log_path.open("w+") as log:
-        child = subprocess.Popen([binary, *(["--headless"] if os.name == "nt" else []), "--config", str(config)], stdout=log,
-                                 stderr=subprocess.STDOUT,
+        child = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, env=child_env,
                                  **({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}))
         try:
             with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=5,
                               trust_env=False) as client:
-                deadline = time.monotonic() + 25
+                # A cold onefile on macOS spends the first half-minute
+                # unpacking and importing. Linux and Windows usually finish
+                # inside the old 25s window; keep one deadline that covers all.
+                deadline = time.monotonic() + 90
                 while time.monotonic() < deadline and child.poll() is None:
                     try:
                         if client.get("/health").status_code == 200:

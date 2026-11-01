@@ -144,7 +144,9 @@ function paint() {
     ? "Downloading does not stop work. Active work blocks restart. New starts will be held while the update applies."
     : platform() === "linux"
       ? "Update outside the app: run `autozcoder update` on the gateway host."
-      : why("self_update") || "Update outside the app on this host.";
+      : platform() === "macos"
+        ? "Update outside the app: download the release and replace ZcodeGateway.app or the ZcodeGateway-macos binary."
+        : why("self_update") || "Update outside the app on this host.";
   controls.download.hidden = !can("self_update") || !available() || phase === "ready" || phase === "applying";
   controls.download.disabled = active;
   controls.apply.hidden = !can("self_update") || (phase !== "ready" && phase !== "applying");

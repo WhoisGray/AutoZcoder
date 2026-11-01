@@ -5,10 +5,12 @@ bundled with an **account generator** and a **Cloudflare mail worker**.
 
 It exposes OpenAI- and Anthropic-compatible endpoints locally, pools multiple
 ZCode accounts behind one key, and can create new accounts for you on demand.
-Runs on **Windows (desktop exe)** and **Linux (headless VPS)**.
+Runs on **Windows (desktop exe)**, **macOS (app and terminal)** and **Linux (headless VPS)**.
 
 **Version 2.0.0** | [Latest downloads](https://github.com/B3hnamR/AutoZcoder/releases/latest)
 | [Windows exe](https://github.com/B3hnamR/AutoZcoder/releases/latest/download/ZcodeGateway.exe)
+| [macOS app](https://github.com/B3hnamR/AutoZcoder/releases/latest/download/ZcodeGateway-macos.zip)
+| [macOS terminal](https://github.com/B3hnamR/AutoZcoder/releases/latest/download/ZcodeGateway-macos)
 | [Linux installation](#run-on-a-linux-vps)
 
 > Unofficial, independent project. Not affiliated with ZCode or z.ai.
@@ -19,16 +21,16 @@ Runs on **Windows (desktop exe)** and **Linux (headless VPS)**.
 
 | Path | What it is |
 |---|---|
-| `zcode_gateway/` | The gateway: FastAPI app, account pool, admin/dashboard API, Windows desktop shell, web dashboard |
+| `zcode_gateway/` | The gateway: FastAPI app, account pool, admin/dashboard API, desktop shell, web dashboard |
 | `zcode_gateway/dashboard/` | The dashboard SPA (served at `/dash`) |
 | `generator/` | The account generator: signup, captcha solving, invite claim, proxy pool |
 | `mail-worker/` | Cloudflare Email Worker that receives signup verification mail |
-| `tests/` | Offline test suite; run `python -m pytest tests -q` (Windows and Linux CI) |
+| `tests/` | Offline test suite; run `python -m pytest tests -q` (Windows, macOS and Linux CI) |
 | `scripts/accounts/` | Account import utility |
 | `scripts/smoke/` | Explicit live checks and the isolated frozen-binary smoke utility |
-| `scripts/build/`, `scripts/packaging/` | Windows/Linux build entry points and packaging inputs |
+| `scripts/build/`, `scripts/packaging/` | Windows, macOS and Linux build entry points and packaging inputs |
 | `tools/captcha-mint/` | Stable JavaScript/TypeScript captcha-mint subsystem |
-| `requirements/` | Windows, server and development dependency sets |
+| `requirements/` | Windows, macOS, server and development dependency sets |
 | `docs/` | Setup/deployment guides, protocol reference and troubleshooting |
 | `.local/` | Ignored local runtime data, build output and scratch files |
 | `.venv/` | Standard local Python virtual environment (ignored) |
@@ -50,6 +52,47 @@ In **Settings → Check for updates now**, packaged Windows builds offer
 does not stop work; applying requires generator jobs, claims, proxy scans and
 client requests to be idle. The helper retains a backup and rolls back an early
 startup exit; its startup check is not a full application health check.
+
+### Run on a Mac
+
+Published Mac builds are **Apple Silicon (arm64)**. Intel Macs are not in
+that asset. Build them on the Intel machine with `bash scripts/build/macos.sh`.
+
+Download either asset from the latest release:
+
+- `ZcodeGateway-macos.zip` contains **ZcodeGateway.app** (double-click).
+- `ZcodeGateway-macos` is the **terminal binary** (same program, no Finder bundle).
+
+macOS marks downloaded files as quarantined. Clear that once, or the app
+exits before it starts:
+
+```bash
+xattr -dr com.apple.quarantine ZcodeGateway.app ZcodeGateway-macos
+chmod +x ZcodeGateway-macos
+open ZcodeGateway.app
+```
+
+Terminal, from the folder that contains the binary:
+
+```bash
+./ZcodeGateway-macos              # server, then the dashboard window or browser
+./ZcodeGateway-macos --headless   # server only
+```
+
+The same binary is also `ZcodeGateway.app/Contents/MacOS/ZcodeGateway`.
+
+Dashboard: <http://127.0.0.1:8788/dash>
+
+On first launch the app writes `config.yaml`, `accounts/`, `logs/` and
+`gateway.db` **beside the .app or the terminal binary**. If that folder is
+not writable (for example `/Applications`), they go to
+`~/Library/Application Support/ZcodeGateway`. Logs from a Finder launch are
+in `~/Library/Logs/ZcodeGateway/zcode-gateway.log`.
+
+Quit the app, or press Ctrl-C in the terminal, to stop the gateway. Replacing
+the app or the binary is how you update. The in-app **Restart to apply**
+action is Windows-only. Accounts and config stay where the previous copy
+wrote them.
 
 ### Run on a Linux VPS
 
@@ -94,7 +137,18 @@ python -m venv .venv
 ```
 
 Run these commands from the repository root. On Linux, use
-`requirements/server.txt` and `.venv/bin/python` instead. The standard virtual
+`requirements/server.txt` and `.venv/bin/python` instead. On macOS, use
+`requirements/macos.txt` (Python 3.12 or newer; the system Python 3.9 is too
+old):
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements/macos.txt
+.venv/bin/python gui_main.py          # dashboard window, or your browser
+.venv/bin/python -m zcode_gateway.main  # terminal server only
+```
+
+The standard virtual
 environment is `.venv/`; `.local/` is reserved for ignored local runtime data,
 build products and scratch files, not Python packages. Packaged installs retain
 their portable data layout beside the executable; this repository reorganization
@@ -152,7 +206,7 @@ or `generator.zcodeauto_dir` in `config.yaml`.
 - Run **1-3 concurrent browser slots**, each with its own cooldown after an
   attempt finishes. Start with one and measure resource use before increasing.
 - Auto Generate uses **AI judge only** and defaults to background browsing:
-  native headless Chromium on Windows (which provider checks may reject),
+  native headless Chromium on Windows and macOS (which provider checks may reject),
   headed Chromium on a private **Xvfb** display on Linux. Desktop mode requires
   a real display; background mode never silently opens a visible fallback.
 - Save the profile explicitly before starting. Pause lets active attempts
@@ -198,9 +252,21 @@ python3 -m venv .venv
 bash scripts/build/linux.sh
 ```
 
-Output: `.local/dist/ZcodeGateway.exe` / `.local/dist/ZcodeGateway` (single
-file, no Python needed to run); intermediate build files stay in `.local/build/`.
-CI runs the suite on both Windows and Ubuntu, plus a runtime-error lint gate.
+On macOS, from the repository root (Bun compiles the captcha-mint sidecar):
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements/macos.txt -r requirements/dev.txt pyinstaller
+.venv/bin/python -m pytest tests -q
+bash scripts/build/macos.sh
+```
+
+Output: `.local/dist/ZcodeGateway.exe`, `.local/dist/ZcodeGateway`, and on
+macOS `.local/dist/ZcodeGateway-macos` plus `.local/dist/ZcodeGateway.app`
+(single file or app, no Python needed to run). Intermediate build files stay
+in `.local/build/`. A tagged release publishes the Windows exe, the Linux
+binary, `ZcodeGateway-macos`, and `ZcodeGateway-macos.zip` (the `.app`).
+CI runs the suite on Windows, macOS and Ubuntu, plus a runtime-error lint gate.
 The root [`install-linux.sh`](install-linux.sh) remains the public Linux
 bootstrap for compatibility; `tools/captcha-mint/` stays in place as its own
 JavaScript/TypeScript subsystem.
@@ -270,8 +336,10 @@ CLI: `python generator/proxy_pool.py{ fetch | verify | recheck | pick | countrie
 ## Security notes
 
 - Packaged Windows data normally lives beside the executable (or in
-  `%LOCALAPPDATA%/ZcodeGateway` if that directory is not writable); the Linux
-  installer defaults to `/opt/zcodegateway`. Back up `config.yaml`, `accounts/`,
+  `%LOCALAPPDATA%/ZcodeGateway` if that directory is not writable). Packaged
+  macOS data lives beside `ZcodeGateway.app` or the terminal binary, or in
+  `~/Library/Application Support/ZcodeGateway` if that folder is not writable.
+  The Linux installer defaults to `/opt/zcodegateway`. Back up `config.yaml`, `accounts/`,
   `gateway.db` and packaged `generator-data/` privately, plus any custom data
   paths and TLS material. Stop the service or use SQLite-aware backup tooling
   rather than copying an actively written database alone.
@@ -288,8 +356,9 @@ CLI: `python generator/proxy_pool.py{ fetch | verify | recheck | pick | countrie
 - Edge relays are pinned to `zcode.z.ai` with a per-relay secret and must be
   reached over https — a deployed relay is not an open proxy.
 - Credential decryption uses the Windows AES-GCM implementation via CNG. On
-  non-Windows, encrypted imports require `cryptography`
-  (included in [requirements/server.txt](requirements/server.txt)).
+  macOS and Linux, encrypted imports require `cryptography`
+  (included in [requirements/server.txt](requirements/server.txt) and
+  [requirements/macos.txt](requirements/macos.txt)).
 
 ## Layout
 
@@ -307,16 +376,16 @@ AutoZCoder/
 |-- mail-worker/          Cloudflare Email Worker template
 |-- scripts/
 |   |-- accounts/         import_account.py
-|   |-- build/            windows.ps1, linux.sh
+|   |-- build/            windows.ps1, macos.sh, linux.sh
 |   |-- packaging/        packaging inputs
 |   `-- smoke/            live.py, frozen_local.py
 |-- tools/captcha-mint/   stable JS/TS subsystem
-|-- requirements/        windows.txt, server.txt, dev.txt
+|-- requirements/        windows.txt, macos.txt, server.txt, dev.txt
 |-- docs/
 |   |-- guides/           SETUP.md, VPS-DEPLOY.md
 |   |-- reference/        PROTOCOL.md
 |   `-- troubleshooting/  DIAGNOSIS-*.md, UNUSUAL-ACTIVITY.md
-|-- tests/                offline tests (Windows + Linux)
+|-- tests/                offline tests (Windows, macOS and Linux)
 |-- assets/
 |-- .local/               ignored runtime/build/scratch files; dist/ output
 |-- .venv/                ignored Python virtual environment

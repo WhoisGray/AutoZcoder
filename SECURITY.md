@@ -57,7 +57,7 @@ Relays deployed by older versions of this tool did none of that: if you still ru
 ## Accounts and credentials
 
 - Account snapshots hold live bearer tokens. The accounts directory is generated with per-user permissions; do not commit or sync it anywhere public.
-- The gateway's own key material lives in `config.yaml` next to the binary (or `ZCODE_GATEWAY_CONFIG`). On Windows, credentials from a ZCode desktop install are decrypted via CNG; on Linux via the `cryptography` package ([requirements/server.txt](requirements/server.txt)).
+- The gateway's own key material lives in `config.yaml` next to the binary (or `ZCODE_GATEWAY_CONFIG`). On macOS that folder is beside `ZcodeGateway.app` or the terminal binary, falling back to `~/Library/Application Support/ZcodeGateway` when the app folder is not writable. On Windows, credentials from a ZCode desktop install are decrypted via CNG; on macOS and Linux via the `cryptography` package ([requirements/server.txt](requirements/server.txt), [requirements/macos.txt](requirements/macos.txt)).
 - In a source checkout, `.local/` is the ignored home for local runtime data, build output and scratch files; `.venv/` remains the standard Python virtual environment. Ignored does not mean safe to publish: keep configs, account snapshots, databases and logs private, including legacy root-level runtime files.
 
 See the [VPS deployment guide](docs/guides/VPS-DEPLOY.md) for installation and

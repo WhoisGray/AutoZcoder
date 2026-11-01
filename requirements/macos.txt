@@ -1,0 +1,5 @@
+# AutoZCoder macOS desktop runtime dependencies.
+# Same gateway runtime as the Linux server, plus the Cocoa/WebKit shell.
+# The Windows WebView2 backend package stays in requirements/windows.txt.
+-r server.txt
+pywebview>=6.0,<7.0

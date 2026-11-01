@@ -80,7 +80,7 @@ export function mount({ root }) {
         el("h2", { text: "Operate with confidence" }),
         el("p", { class: "muted text-sm", text: "Setup, day-to-day tasks, and recovery. Start with the failing stage, not another retry." }),
       ]),
-      el("span", { class: "badge", text: platform() === "linux" ? "Linux VPS reference" : platform() === "windows" ? "Windows reference" : "Windows + Linux" }),
+      el("span", { class: "badge", text: platform() === "linux" ? "Linux VPS reference" : platform() === "windows" ? "Windows reference" : platform() === "macos" ? "macOS reference" : "Windows, macOS and Linux" }),
     ]),
     el("div", { class: "guide-search" }, [input, resultCount]),
     chapterPicker,

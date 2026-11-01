@@ -13,6 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 WINDOWS_BUILD = "scripts/build/windows.ps1"
 LINUX_BUILD = "scripts/build/linux.sh"
+MACOS_BUILD = "scripts/build/macos.sh"
 HELPER = ROOT / "scripts/packaging/stage_mail_worker.py"
 PRISTINE_CONFIG = '''name = "zai-mail"
 main = "src/index.js"
@@ -71,7 +72,7 @@ def staging_command(script_name, source, destination):
     return [sys.executable, "-B", str(ROOT / helper), str(source), str(destination)]
 
 
-@pytest.mark.parametrize("script_name", [WINDOWS_BUILD, LINUX_BUILD])
+@pytest.mark.parametrize("script_name", [WINDOWS_BUILD, LINUX_BUILD, MACOS_BUILD])
 def test_build_stages_only_whitelisted_inputs(script_name, worker, tmp_path):
     destination = tmp_path / "empty stage"
     destination.mkdir()
@@ -113,21 +114,25 @@ def test_staging_fails_closed(worker, tmp_path, mutation):
 def test_builds_bundle_stages_not_live_worker_tree():
     windows = (ROOT / WINDOWS_BUILD).read_text(encoding="utf-8")
     linux = (ROOT / LINUX_BUILD).read_text(encoding="utf-8")
+    macos = (ROOT / MACOS_BUILD).read_text(encoding="utf-8")
     assert '"--add-data", "$mailStage;mail-worker"' in windows
     assert '--add-data "$MAIL_STAGE:mail-worker"' in linux
+    assert '--add-data "$MAIL_STAGE:mail-worker"' in macos
     assert '"--add-data", "$genStage;generator"' in windows
     assert '--add-data "$GEN_STAGE:generator"' in linux
+    assert '--add-data "$GEN_STAGE:generator"' in macos
     assert 'Copy-Item -Path (Join-Path $Here "generator\\*.py") -Destination $genStage' in windows
-    for script in (windows, linux):
+    for script in (windows, linux, macos):
         data_lines = [line for line in script.splitlines() if "--add-data" in line]
         worker_lines = [line for line in data_lines if "mail-worker" in line]
         assert len(worker_lines) == 1
         assert "Copy-Item" not in "\n".join(line for line in script.splitlines() if "mail-worker" in line)
     assert windows.index("if ($LASTEXITCODE -ne 0)", windows.index("stage_mail_worker.py")) < windows.index("$buildArgs =")
-    trap = next(line for line in linux.splitlines() if line.startswith("trap "))
-    assert 'rm -rf "$GEN_STAGE"' in trap and 'rm -rf "$MAIL_STAGE"' in trap and "EXIT" in trap
-    assert linux.index(trap) < linux.index('MAIL_STAGE="$(mktemp') < linux.index("stage_mail_worker.py") < linux.index('"$PY" -m PyInstaller')
-    assert not any("rm -rf" in line for line in linux.splitlines()[linux.splitlines().index(trap) + 1:])
+    for script in (linux, macos):
+        trap = next(line for line in script.splitlines() if line.startswith("trap "))
+        assert 'rm -rf "$GEN_STAGE"' in trap and 'rm -rf "$MAIL_STAGE"' in trap and "EXIT" in trap
+        assert script.index(trap) < script.index('MAIL_STAGE="$(mktemp') < script.index("stage_mail_worker.py") < script.index('"$PY" -m PyInstaller')
+        assert not any("rm -rf" in line for line in script.splitlines()[script.splitlines().index(trap) + 1:])
 
 
 def test_relocated_builds_resolve_root_and_keep_outputs_local():
@@ -152,6 +157,20 @@ def test_relocated_builds_resolve_root_and_keep_outputs_local():
         assert f"{option} {path}" in linux
     assert 'foreach ($f in @("README.md", "requirements.txt"))' in windows
     assert "for f in README.md requirements.txt; do" in linux
+    macos = (ROOT / MACOS_BUILD).read_text(encoding="utf-8")
+    assert 'dirname -- "${BASH_SOURCE[0]}"' in macos
+    assert '$(dirname -- "$SCRIPT_PATH")/../..' in macos
+    assert 'cd -- "$ROOT"' in macos
+    assert "-r requirements/macos.txt" in macos
+    assert '--add-data "$ROOT/config.example.yaml:."' in macos
+    assert '--add-data "$ROOT/zcode_gateway/dashboard:zcode_gateway/dashboard"' in macos
+    assert '"$ROOT/gui_main.py"' in macos
+    assert '[[ "$(uname -s)" == "Darwin" ]]' in macos
+    for option, path in (("--workpath", ".local/build"),
+                         ("--distpath", ".local/dist"),
+                         ("--specpath", ".local/build/specs")):
+        assert f"{option} {path}" in macos
+    assert "for f in README.md requirements.txt; do" in macos
     for old_path in ("build-exe.ps1", "build-linux.sh", "tools/stage_mail_worker.py", "tools/exe_version.txt"):
         assert not (ROOT / old_path).exists()
     assert (ROOT / "scripts/packaging/exe_version.txt").is_file()
@@ -168,6 +187,19 @@ def test_builds_keep_known_native_sidecar_inputs():
     assert 'MINT_DIR="tools/captcha-mint"' in linux
     assert '--add-binary "$ROOT/$MINT_BIN:captcha-mint"' in linux
     assert 'install -m 755 "$MINT_BIN" .local/dist/captcha-mint/captcha-mint' in linux
+    macos = (ROOT / MACOS_BUILD).read_text(encoding="utf-8")
+    assert 'MINT_DIR="tools/captcha-mint"' in macos
+    assert "bun-darwin-" in macos
+    assert '--add-binary "$ROOT/$MINT_BIN:captcha-mint"' in macos
+    assert 'install -m 755 "$MINT_BIN" .local/dist/captcha-mint/captcha-mint' in macos
+    assert "ZcodeGateway.app" in macos
+    assert "ZcodeGateway-macos" in macos
+    assert "--hidden-import pythonnet" not in macos
+    assert "--hidden-import clr" not in macos
+    requirements = (ROOT / "requirements/macos.txt").read_text(encoding="utf-8")
+    assert "-r server.txt" in requirements
+    assert "pywebview" in requirements
+    assert "pythonnet" not in requirements
 
 
 def test_generator_config_has_no_literal_key_defaults():

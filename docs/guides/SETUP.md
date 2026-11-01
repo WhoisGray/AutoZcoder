@@ -14,8 +14,11 @@ the [VPS guide](VPS-DEPLOY.md).
 
 ## Portable install
 
-Drop `ZcodeGateway.exe` in **any** folder and run it. Everything is created
-beside it on first run — nothing is written elsewhere:
+Drop `ZcodeGateway.exe` in **any** folder and run it. On a Mac, use
+`ZcodeGateway.app` or the `ZcodeGateway-macos` terminal binary the same way
+(clear the download quarantine first; see the README). Everything is created
+beside it on first run. If the Mac folder is not writable, data goes to
+`~/Library/Application Support/ZcodeGateway`:
 
 ```
 your-folder/

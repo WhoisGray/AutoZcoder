@@ -3874,9 +3874,9 @@ class GeneratorManager:
             "ZAI_PROXY": "0", "ZAI_USE_POOL": "0", "ZAI_SOCKS_ONLY": "0",
             "ZAI_PROXY_COUNTRY": self.country or "ALL",
             "ZAI_MANUAL": "1" if self.captcha == "manual" else "0",
-            # Windows background is native headless; Linux background uses
-            # headed Chromium on a private Xvfb screen instead.
-            "ZAI_HEADLESS": "1" if sys.platform == "win32" and self.browser_display == "headless" and self.captcha != "manual" else "0",
+            # Windows and macOS background mode use native headless Chromium.
+            # Linux background uses headed Chromium on a private Xvfb screen.
+            "ZAI_HEADLESS": "1" if sys.platform in ("win32", "darwin") and self.browser_display == "headless" and self.captcha != "manual" else "0",
             "ZAI_PROXY_RETRIES": str(self.retries),
             # per-worker log file: every browser gets its own full solve log
             # under <data>/logs/workers/<name>_<timestamp>.log

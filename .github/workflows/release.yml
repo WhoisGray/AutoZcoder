@@ -74,6 +74,10 @@ jobs:
             python-version: "3.12"
             python: .venv/bin/python
             requirements: requirements/server.txt
+          - os: macos-latest
+            python-version: "3.13"
+            python: .venv/bin/python
+            requirements: requirements/macos.txt
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -101,6 +105,9 @@ jobs:
       - name: Install Chromium and system libraries (Linux)
         if: runner.os == 'Linux'
         run: '"$PYTHON" -m playwright install --with-deps chromium'
+      - name: Install Chromium (macOS)
+        if: runner.os == 'macOS'
+        run: '"$PYTHON" -m playwright install chromium'
       - name: Require a working browser before running UI tests
         run: |
           "$PYTHON" - <<'PY'
@@ -254,8 +261,94 @@ jobs:
             .local/dist/checksums-linux.sha256
             .local/dist/install-linux.sh
 
+  build-macos:
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+      - name: Test native helper sources before packaging
+        working-directory: tools/captcha-mint
+        run: |
+          bun install --frozen-lockfile
+          bun run test
+      - name: Create venv and install macOS build dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements/macos.txt pyinstaller
+      - name: Build macOS app and terminal binary with embedded native sidecar
+        run: bash scripts/build/macos.sh
+      - name: Verify the native sidecar and gateway are Mach-O executables
+        run: |
+          set -euo pipefail
+          test -x tools/captcha-mint/captcha-mint
+          test -x .local/dist/ZcodeGateway-macos
+          test -d .local/dist/ZcodeGateway.app
+          test -x .local/dist/ZcodeGateway.app/Contents/MacOS/ZcodeGateway
+          file tools/captcha-mint/captcha-mint .local/dist/ZcodeGateway-macos
+          python3 - <<'PY'
+          import pathlib, subprocess, sys
+          for path in ("tools/captcha-mint/captcha-mint", ".local/dist/ZcodeGateway-macos"):
+              text = subprocess.check_output(["file", path], text=True)
+              if "Mach-O" not in text:
+                  sys.exit(f"{path} is not a Mach-O executable: {text}")
+          app = pathlib.Path(".local/dist/ZcodeGateway.app/Contents/MacOS/ZcodeGateway")
+          loose = pathlib.Path(".local/dist/ZcodeGateway-macos")
+          # Bundle signing rewrites the inner Mach-O signature, so the files
+          # are not byte-identical. The bytes before LC_CODE_SIGNATURE are.
+          def unsigned_payload(path: pathlib.Path) -> bytes:
+              blob = path.read_bytes()
+              import struct
+              if len(blob) < 32 or struct.unpack_from("<I", blob, 0)[0] != 0xFEEDFACF:
+                  sys.exit(f"{path} is not a little-endian 64-bit Mach-O")
+              ncmds, sizeofcmds = struct.unpack_from("<II", blob, 16)
+              offset = 32
+              end = offset + sizeofcmds
+              sig_off = None
+              for _ in range(ncmds):
+                  cmd, cmdsize = struct.unpack_from("<II", blob, offset)
+                  if cmd == 0x1D and cmdsize >= 16:  # LC_CODE_SIGNATURE
+                      sig_off = struct.unpack_from("<I", blob, offset + 8)[0]
+                  offset += cmdsize
+                  if offset > end:
+                      break
+              if not sig_off:
+                  sys.exit(f"{path} has no code signature")
+              return blob[:sig_off]
+          if unsigned_payload(app) != unsigned_payload(loose):
+              sys.exit("The .app executable must be the terminal binary")
+          PY
+      - name: Smoke test the packaged macOS application with dummy state
+        run: |
+          export AUDIT_BINARY="$GITHUB_WORKSPACE/.local/dist/ZcodeGateway-macos"
+          scratch=$(mktemp -d "$RUNNER_TEMP/frozen-macos-smoke.XXXXXX")
+          cd "$scratch"
+          "$GITHUB_WORKSPACE/.venv/bin/python" "$GITHUB_WORKSPACE/scripts/smoke/frozen_local.py"
+      - name: Zip the app and checksum macOS release assets (sidecar is embedded, not uploaded)
+        run: |
+          set -euo pipefail
+          ditto -c -k --keepParent .local/dist/ZcodeGateway.app .local/dist/ZcodeGateway-macos.zip
+          (cd .local/dist && shasum -a 256 ZcodeGateway-macos ZcodeGateway-macos.zip > checksums-macos.sha256)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          if-no-files-found: error
+          include-hidden-files: true
+          path: |
+            .local/dist/ZcodeGateway-macos
+            .local/dist/ZcodeGateway-macos.zip
+            .local/dist/checksums-macos.sha256
+
   publish:
-    needs: [build-windows, build-linux]
+    needs: [build-windows, build-linux, build-macos]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -275,6 +368,10 @@ jobs:
         with:
           name: release-linux
           path: release-assets
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-macos
+          path: release-assets
       - name: Verify the complete artifact set and every payload checksum
         run: |
           python - <<'PY'
@@ -284,10 +381,11 @@ jobs:
 
           root = Path("release-assets")
           manifests = {"checksums.sha256": {"ZcodeGateway.exe"},
-                       "checksums-linux.sha256": {"ZcodeGateway", "install-linux.sh"}}
+                       "checksums-linux.sha256": {"ZcodeGateway", "install-linux.sh"},
+                       "checksums-macos.sha256": {"ZcodeGateway-macos", "ZcodeGateway-macos.zip"}}
           expected = set(manifests) | set().union(*manifests.values())
           if {p.name for p in root.iterdir()} != expected:
-              raise SystemExit("Release must contain exactly the five expected asset leafs")
+              raise SystemExit("Release must contain exactly the eight expected asset leafs")
           if any(not p.is_file() or p.is_symlink() or p.stat().st_size == 0 for p in root.iterdir()):
               raise SystemExit("Release assets must be nonempty regular files")
           for manifest, payloads in manifests.items():
@@ -320,15 +418,19 @@ jobs:
           esac
           gh release view "$RELEASE_TAG" --json body --jq '.body' > release-notes.txt
           printf '\nLinux runtime baseline: x86_64 Ubuntu 22.04 / glibc 2.35 or newer with compatible system libraries. Older glibc, musl/Alpine and other architectures are not supported by this binary.\n' >> release-notes.txt
+          printf '\nmacOS runtime: Apple Silicon (arm64), built on the GitHub macOS runner. Intel Macs are not in this asset; build them with scripts/build/macos.sh. A downloaded app or binary must have its quarantine cleared before the first open: xattr -dr com.apple.quarantine ZcodeGateway.app ZcodeGateway-macos\n' >> release-notes.txt
           gh release edit "$RELEASE_TAG" --notes-file release-notes.txt
-      - name: Upload all five assets while the release remains a draft
+      - name: Upload all eight assets while the release remains a draft
         run: |
           gh release upload "$RELEASE_TAG" \
             release-assets/ZcodeGateway.exe \
             release-assets/checksums.sha256 \
             release-assets/ZcodeGateway \
             release-assets/checksums-linux.sha256 \
-            release-assets/install-linux.sh --clobber
+            release-assets/install-linux.sh \
+            release-assets/ZcodeGateway-macos \
+            release-assets/ZcodeGateway-macos.zip \
+            release-assets/checksums-macos.sha256 --clobber
       - name: Verify uploaded assets before publishing
         run: |
           set -euo pipefail
@@ -340,7 +442,7 @@ jobs:
           expected = {p.name for p in Path("release-assets").iterdir()}
           names = [asset["name"] for asset in release["assets"]]
           if not release["isDraft"] or len(names) != len(expected) or set(names) != expected:
-              raise SystemExit("Release must still be a draft with exactly the five expected assets")
+              raise SystemExit("Release must still be a draft with exactly the eight expected assets")
           PY
           gh release download "$RELEASE_TAG" --dir uploaded-assets
           python - <<'PY'

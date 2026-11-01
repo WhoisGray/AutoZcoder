@@ -16,7 +16,9 @@ WORKFLOW = yaml.load(
 )
 JOBS = WORKFLOW["jobs"]
 PAYLOADS = {"ZcodeGateway.exe": b"dummy windows", "ZcodeGateway": b"dummy linux",
-            "install-linux.sh": b"#!/bin/sh\nexit 0\n"}
+            "install-linux.sh": b"#!/bin/sh\nexit 0\n",
+            "ZcodeGateway-macos": b"dummy macos terminal",
+            "ZcodeGateway-macos.zip": b"dummy macos app zip"}
 
 
 def step(job, name):
@@ -41,6 +43,7 @@ def make_assets(tmp_path):
     for manifest, names in {
         "checksums.sha256": ["ZcodeGateway.exe"],
         "checksums-linux.sha256": ["ZcodeGateway", "install-linux.sh"],
+        "checksums-macos.sha256": ["ZcodeGateway-macos", "ZcodeGateway-macos.zip"],
     }.items():
         (root / manifest).write_text("".join(
             f"{hashlib.sha256(PAYLOADS[name]).hexdigest()}  {name}\n" for name in names
@@ -56,7 +59,7 @@ def test_tag_only_publication_and_least_privilege():
         "group": "release-${{ github.ref }}", "cancel-in-progress": "false",
     }
     assert JOBS["test"]["needs"] == "validate"
-    assert JOBS["publish"]["needs"] == ["build-windows", "build-linux"]
+    assert JOBS["publish"]["needs"] == ["build-windows", "build-linux", "build-macos"]
     assert JOBS["publish"]["permissions"] == {"contents": "write"}
     for name, job in JOBS.items():
         if name != "publish":
@@ -75,15 +78,17 @@ def test_both_platform_test_gates_install_and_require_chromium():
     assert test["strategy"]["fail-fast"] == "false"
     matrix = test["strategy"]["matrix"]["include"]
     assert {(row["os"], row["python-version"]) for row in matrix} == {
-        ("windows-latest", "3.13"), ("ubuntu-22.04", "3.12"),
+        ("windows-latest", "3.13"), ("ubuntu-22.04", "3.12"), ("macos-latest", "3.13"),
     }
     assert matrix[0]["requirements"] == "requirements/windows.txt"
     assert matrix[1]["requirements"] == "requirements/server.txt"
+    assert matrix[2]["requirements"] == "requirements/macos.txt"
     install = step("test", "Create venv and install runtime and UI test dependencies")["run"]
     assert "requirements/dev.txt playwright Pillow PySocks cryptography" in install
     assert "playwright install chromium" in step("test", "Install Chromium (Windows)")["run"]
     assert "playwright install --with-deps chromium" in step(
         "test", "Install Chromium and system libraries (Linux)")["run"]
+    assert "playwright install chromium" in step("test", "Install Chromium (macOS)")["run"]
     preflight = step("test", "Require a working browser before running UI tests")["run"]
     assert "runtime.chromium.launch()" in preflight
     assert "except" not in preflight
@@ -115,6 +120,7 @@ def test_builds_only_upload_explicit_release_assets_after_smoke():
     expected = {
         "build-windows": {".local/dist/ZcodeGateway.exe", ".local/dist/checksums.sha256"},
         "build-linux": {".local/dist/ZcodeGateway", ".local/dist/checksums-linux.sha256", ".local/dist/install-linux.sh"},
+        "build-macos": {".local/dist/ZcodeGateway-macos", ".local/dist/ZcodeGateway-macos.zip", ".local/dist/checksums-macos.sha256"},
     }
     for name, paths in expected.items():
         job = JOBS[name]
@@ -131,6 +137,11 @@ def test_builds_only_upload_explicit_release_assets_after_smoke():
         bun = next(s for s in job["steps"] if s.get("uses", "").startswith("oven-sh/setup-bun@"))
         assert bun["with"]["bun-version"] == "1.3.14"
     assert JOBS["build-linux"]["runs-on"] == "ubuntu-22.04"
+    assert JOBS["build-macos"]["runs-on"] == "macos-latest"
+    macos_checks = step("build-macos", "Zip the app and checksum macOS release assets (sidecar is embedded, not uploaded)")["run"]
+    assert "ZcodeGateway-macos.zip" in macos_checks
+    assert "shasum -a 256 ZcodeGateway-macos ZcodeGateway-macos.zip" in macos_checks
+    assert "captcha-mint" not in macos_checks
     linux_checks = step("build-linux", "Checksum Linux release assets (sidecar is embedded, not uploaded)")["run"]
     assert "sha256sum ZcodeGateway install-linux.sh" in linux_checks
     assert "sha256sum tools/captcha-mint" not in linux_checks
@@ -195,18 +206,19 @@ def test_publish_orders_draft_upload_remote_verification_then_visibility():
     names = [item.get("name") for item in steps]
     required = ["Verify the complete artifact set and every payload checksum",
                 "Create or resume a draft without modifying a public release",
-                "Upload all five assets while the release remains a draft",
+                "Upload all eight assets while the release remains a draft",
                 "Verify uploaded assets before publishing",
                 "Publish only the fully verified draft"]
     assert [names.index(name) for name in required] == sorted(names.index(name) for name in required)
     downloads = [item["with"]["name"] for item in steps
                  if item.get("uses", "").startswith("actions/download-artifact@")]
-    assert downloads == ["release-windows", "release-linux"]
+    assert downloads == ["release-windows", "release-linux", "release-macos"]
     draft = step("publish", required[1])["run"]
     assert "gh api --paginate" in draft
     assert "--verify-tag --draft --generate-notes" in draft
     assert "Refusing to overwrite existing public release" in draft
     assert "glibc 2.35" in draft
+    assert "Apple Silicon" in draft
     assert "gh release delete" not in draft
     assert "gh release download" in step("publish", required[3])["run"]
     assert steps[-1]["run"] == 'gh release edit "$RELEASE_TAG" --draft=false'

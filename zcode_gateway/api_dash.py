@@ -232,6 +232,10 @@ async def dash_capabilities(request: Request, key: str = Depends(admin_key)) -> 
     frozen = bool(getattr(sys, "frozen", False))
     windows = os.name == "nt"
     linux = sys.platform.startswith("linux")
+    macos = sys.platform == "darwin"
+    # Aqua is the macOS display server. DISPLAY is an X11 variable and stays
+    # unset on a normal Mac, which must not be treated as a headless VPS.
+    desktop = windows or macos
     has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
 
     xvfb = None
@@ -247,34 +251,44 @@ async def dash_capabilities(request: Request, key: str = Depends(admin_key)) -> 
     except Exception:
         zcode_app_present = False
 
+    if windows:
+        os_name = "windows"
+    elif linux:
+        os_name = "linux"
+    elif macos:
+        os_name = "macos"
+    else:
+        os_name = sys.platform
     return {
-        "os": "windows" if windows else ("linux" if linux else sys.platform),
+        "os": os_name,
         "frozen": frozen,
         "headless": linux and not has_display,
         "features": {
             # Swapping the running binary is implemented for the Windows exe
-            # only; on Linux the installer/package replaces it.
+            # only. Linux uses the installer. macOS replaces the .app or binary.
             "self_update": windows and frozen,
             # Reads the desktop app's credential store.
             "import_from_app": zcode_app_present,
-            # Killing the process from the UI makes sense for the windowed exe;
-            # under systemd it would just look like a crash and get restarted.
-            "shutdown": windows and frozen,
+            # Killing the process from the UI makes sense for a packaged desktop
+            # app. Under systemd it would just look like a crash and get restarted.
+            "shutdown": desktop and frozen,
             # A visible browser needs a real display, or Xvfb to fake one.
-            "visible_browser": windows or has_display,
-            "manual_captcha": windows or has_display,
+            "visible_browser": desktop or has_display,
+            "manual_captcha": desktop or has_display,
             "xvfb": bool(xvfb),
         },
         "notes": {
-            "self_update": "" if (windows and frozen) else
-                ("Update by replacing the binary, or run `autozcoder update`."
-                 if linux else "Self-update is only available in the packaged app."),
+            "self_update": "" if (windows and frozen) else (
+                "Update by replacing the binary, or run `autozcoder update`."
+                if linux else
+                "Download the new release and replace ZcodeGateway.app or the ZcodeGateway-macos binary."
+                if macos else "Self-update is only available in the packaged app."),
             "import_from_app": "" if zcode_app_present else
                 "No Zcode desktop app credentials found on this machine.",
-            "shutdown": "" if (windows and frozen) else
-                ("Managed by systemd — use `systemctl stop zcodegateway`."
-                 if linux else "Stop the gateway from the terminal that started it."),
-            "visible_browser": "" if (windows or has_display) else
+            "shutdown": "" if (desktop and frozen) else (
+                "Managed by systemd — use `systemctl stop zcodegateway`."
+                if linux else "Stop the gateway from the terminal that started it, or quit the app."),
+            "visible_browser": "" if (desktop or has_display) else
                 ("This host has no display. Headless solving is used instead"
                  + (" (Xvfb is available for headed runs)." if xvfb else "; install Xvfb for headed runs.")),
         },

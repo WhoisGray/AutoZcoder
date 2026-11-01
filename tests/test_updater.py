@@ -179,6 +179,9 @@ async def test_malformed_check_preserves_successful_status(payload):
 
 async def test_check_linux_selects_linux_assets(monkeypatch):
     monkeypatch.setattr(updater_mod.os, "name", "posix")
+    # os.name is posix on both Linux and macOS. Pin the asset family so this
+    # stays a Linux check when the suite runs on a Mac.
+    monkeypatch.setattr(updater_mod, "_host_kind", lambda: "linux")
     release = _release()
     base = "https://github.com/B3hnamR/ZcodeGate/releases/download/v0.4.0/"
     release["assets"].extend([
@@ -191,6 +194,24 @@ async def test_check_linux_selects_linux_assets(monkeypatch):
     assert not status["self_update_available"]
     assert status["download_url"] == base + "ZcodeGateway"
     assert status["checksum_url"].endswith("checksums-linux.sha256")
+
+
+async def test_check_macos_selects_macos_assets(monkeypatch):
+    monkeypatch.setattr(updater_mod.os, "name", "posix")
+    monkeypatch.setattr(updater_mod, "_host_kind", lambda: "macos")
+    release = _release()
+    base = "https://github.com/B3hnamR/ZcodeGate/releases/download/v0.4.0/"
+    release["assets"].extend([
+        {"name": "ZcodeGateway-macos", "browser_download_url": base + "ZcodeGateway-macos"},
+        {"name": "ZcodeGateway-macos.zip", "browser_download_url": base + "ZcodeGateway-macos.zip"},
+        {"name": "checksums-macos.sha256", "browser_download_url": base + "checksums-macos.sha256"},
+    ])
+    checker = UpdateChecker("B3hnamR/ZcodeGate", "0.3.0", client=_StubClient(release))
+    status = await checker.check()
+    assert status["update_available"] and status["release_available"]
+    assert not status["self_update_available"]
+    assert status["download_url"] == base + "ZcodeGateway-macos.zip"
+    assert status["checksum_url"].endswith("checksums-macos.sha256")
 
 
 async def test_check_newer_release_without_assets_still_notifies():

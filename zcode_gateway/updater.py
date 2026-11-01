@@ -42,6 +42,23 @@ NEW_EXE_NAME = "ZcodeGateway.new.exe"
 CHECKSUM_ASSET_NAME = "checksums.sha256"
 MAX_DOWNLOAD_BYTES = 512 * 1024 * 1024
 
+# Published names. macOS ships a Finder .app zip plus a loose terminal binary;
+# the zip is the asset an update check points at. Applying a swap is Windows-only.
+_RELEASE_FILES = {
+    "windows": (EXE_NAME, CHECKSUM_ASSET_NAME),
+    "linux": ("ZcodeGateway", "checksums-linux.sha256"),
+    "macos": ("ZcodeGateway-macos.zip", "checksums-macos.sha256"),
+}
+
+
+def _host_kind() -> str:
+    """Which release asset this process should look up."""
+    if os.name == "nt":
+        return "windows"
+    if sys.platform == "darwin":
+        return "macos"
+    return "linux"
+
 _VERSION_RE = re.compile(r"v?(\d+(?:\.\d+)*)", re.ASCII)
 _HASH_RE = re.compile(r"[0-9a-fA-F]{64}", re.ASCII)
 
@@ -110,15 +127,15 @@ class UpdateChecker:
                     or not isinstance(rel.get("assets"), list)
                     or not parse_version(rel["tag_name"])):
                 raise ValueError("malformed release metadata")
-            windows = os.name == "nt"
-            asset = pick_asset(rel["assets"], EXE_NAME if windows else "ZcodeGateway")
-            checksum_asset = pick_asset(
-                rel["assets"], CHECKSUM_ASSET_NAME if windows else "checksums-linux.sha256")
+            asset_name, checksum_name = _RELEASE_FILES[_host_kind()]
+            windows = asset_name == EXE_NAME
+            asset = pick_asset(rel["assets"], asset_name)
+            checksum_asset = pick_asset(rel["assets"], checksum_name)
             if asset and checksum_asset:
                 _release_urls(asset["browser_download_url"],
                               checksum_asset["browser_download_url"],
-                              asset_name=EXE_NAME if windows else "ZcodeGateway",
-                              checksum_name=CHECKSUM_ASSET_NAME if windows else "checksums-linux.sha256")
+                              asset_name=asset_name,
+                              checksum_name=checksum_name)
         except Exception as exc:
             log.info("update check failed: %s", exc)
             self._last = {**self._last, "attempted_at": time.time(),
@@ -227,6 +244,10 @@ async def download_update(url: str, checksum_url: str | None,
     if not getattr(sys, "frozen", False):
         raise RuntimeError("self-update is only available in the exe build")
     if os.name != "nt":
+        if sys.platform == "darwin":
+            raise RuntimeError(
+                "self-update download is Windows-only; on macOS, replace "
+                "ZcodeGateway.app or the ZcodeGateway-macos binary from the release")
         raise RuntimeError("self-update download is Windows-only; use the Linux installer")
     if not checksum_url:
         raise RuntimeError(
@@ -444,6 +465,10 @@ def apply_update(new_exe: Path, *, config_path: str | Path | None = None) -> Non
     if not getattr(sys, "frozen", False):
         raise RuntimeError("self-update is only available in the exe build")
     if os.name != "nt":
+        if sys.platform == "darwin":
+            raise RuntimeError(
+                "self-update is Windows-only in this build; on macOS, replace "
+                "ZcodeGateway.app or the ZcodeGateway-macos binary from the release")
         raise RuntimeError("self-update is Windows-only in this build; on "
                            "Linux, replace the binary with the release artifact")
     current = Path(sys.executable).resolve()

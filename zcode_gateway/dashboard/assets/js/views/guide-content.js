@@ -6,10 +6,11 @@ export const GUIDE = [
       "Open Server. Copy the reachable API base URL and a client key into your OpenAI-compatible or Anthropic-compatible application. Do not use 0.0.0.0 as a destination address.",
       "Use a model ID listed in Models. Send a short request, then check Analytics and Logs. Some models may require an edge relay for your network; relay setup is optional, not a first-run requirement.",
     ] },
-    { title: "Windows exe versus Linux VPS", tags: "platform install headless display", steps: [
+    { title: "Windows exe versus Linux VPS", tags: "platform install headless display macos mac", steps: [
       "Windows runs the desktop launcher and visible signup browsers. Import from app is available only when a local Zcode credential store exists.",
+      "macOS runs ZcodeGateway.app the same way, or ZcodeGateway-macos in Terminal. Data is written beside the app or binary, or under ~/Library/Application Support/ZcodeGateway when that folder is not writable. Remove the download quarantine with xattr -dr com.apple.quarantine before the first launch.",
       "A Linux VPS runs the gateway as a service and uses headed Chromium on a private Xvfb display when no desktop exists. There is no browser window to see over SSH. Manual captcha requires an actual desktop display.",
-      "Fresh Linux generator defaults are AI judge only for both Captcha and AI judge model. Saved dashboard choices and explicit existing configuration take precedence. Windows defaults are unchanged.",
+      "Fresh Linux generator defaults are AI judge only for both Captcha and AI judge model. Saved dashboard choices and explicit existing configuration take precedence. Windows and macOS defaults stay manual unless you change them. Background generation on Windows and macOS uses native headless Chromium.",
     ] },
     { title: "Use the right key", tags: "admin password login client authorization bearer", steps: [
       "The admin key unlocks this dashboard and powerful administration endpoints. A client key authorizes model requests. Never give a client application your admin key unless you intentionally grant that broader authority.",
@@ -134,6 +135,7 @@ export const GUIDE = [
       "Use Settings > Check for updates now for a manual release check. Windows packaged builds offer Download update, then a separate Restart to apply action. Downloading does not stop work; applying requires generation, claim batches, proxy scans and client requests to be idle.",
       "The Windows helper verifies the staged checksum again, waits for the app and its bootloader, preserves launch arguments/configuration/working directory, and retains a backup. Early startup exit triggers rollback; staying alive for ten seconds is not a complete application health check. Inspect the private helper update.log if relaunch fails.",
       "Linux notifications show release information, not a Windows exe download. Use sudo autozcoder update after stopping work. The manager stages matching gateway/manager assets from one release, verifies checksums, and rolls back deployment files if restart or health fails. Accounts/configuration are retained; keep a separate private backup.",
+      "macOS notifications show release information. Quit the app, then replace ZcodeGateway.app or the ZcodeGateway-macos terminal binary from the release. Accounts and config stay beside the app, or in Application Support if the app folder was not writable. Published Mac builds are Apple Silicon. Intel Macs build with scripts/build/macos.sh on that machine.",
       "Published Linux builds require x86_64 and glibc 2.35 or newer. Source/custom supervisor installations need their own compatible build/runtime and manual restart policy. If generator dependencies are incompatible after staging, repair the environment rather than disabling checks. Neither updater needs your account export or Cloudflare token.",
     ] },
   ] },

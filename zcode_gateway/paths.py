@@ -16,8 +16,22 @@ from pathlib import Path
 
 
 def app_dir() -> Path:
+    """Folder that owns portable config, accounts, and logs.
+
+    A frozen macOS .app reports its executable inside Contents/MacOS. Data
+    belongs beside the bundle, not inside it, so replacing the app does not
+    wipe the user's accounts. A loose terminal binary keeps data beside that
+    file, the same way the Windows exe and the Linux binary do.
+    """
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
+        exe = Path(sys.executable).resolve()
+        macos_dir = exe.parent
+        contents = macos_dir.parent
+        bundle = contents.parent
+        if (sys.platform == "darwin" and macos_dir.name == "MacOS"
+                and contents.name == "Contents" and bundle.suffix == ".app"):
+            return bundle.parent
+        return exe.parent
     return Path(__file__).resolve().parent.parent
 
 
@@ -87,10 +101,12 @@ def default_config_yaml() -> str:
 
 def _per_user_dir() -> Path:
     """Per-user data dir when the binary's folder is not writable
-    (Program Files, corporate lockdowns) — Windows and POSIX."""
+    (Program Files, /Applications, corporate lockdowns)."""
     if os.name == "nt":
         local = os.environ.get("LOCALAPPDATA", str(Path.home()))
         return Path(local) / "ZcodeGateway"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "ZcodeGateway"
     xdg = os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share"))
     return Path(xdg) / "ZcodeGateway"
 
@@ -116,8 +132,8 @@ def bootstrap_config() -> Path:
     a hardcoded default), portable relative paths (./accounts, ./logs,
     ./gateway.db — resolved against the config's folder by load_config),
     and create the accounts folder. If that folder is not writable, fall
-    back to a per-user data dir so the tool still works. Works identically
-    on Windows and Linux; imports no GUI modules.
+    back to a per-user data dir so the tool still works. Works on Windows,
+    macOS, and Linux; imports no GUI modules.
     """
     base = base_dir()
     cfg = base / "config.yaml"

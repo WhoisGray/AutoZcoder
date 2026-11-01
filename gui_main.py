@@ -24,6 +24,7 @@ MUTEX_NAME = "ZcodeGatewayByB3hnamR-SingleInstance"
 DASH_PATH = "/dash"
 
 _mutex_handle = None
+_instance_lock = None
 
 
 def _exe_dir() -> Path:
@@ -44,19 +45,57 @@ def _bootstrap_config() -> Path:
 
 
 def _already_running() -> bool:
-    """Session-local named mutex: True when another copy already holds it."""
-    global _mutex_handle
-    ERROR_ALREADY_EXISTS = 183
-    _mutex_handle = ctypes.windll.kernel32.CreateMutexW(None, True, MUTEX_NAME)
-    return ctypes.windll.kernel32.GetLastError() == ERROR_ALREADY_EXISTS
+    """True when another copy already holds the session lock.
+
+    Windows uses a named mutex. macOS and Linux use a per-user file lock so
+    a second double-click opens the dashboard instead of binding the port.
+    """
+    if sys.platform == "win32":
+        global _mutex_handle
+        ERROR_ALREADY_EXISTS = 183
+        _mutex_handle = ctypes.windll.kernel32.CreateMutexW(None, True, MUTEX_NAME)
+        return ctypes.windll.kernel32.GetLastError() == ERROR_ALREADY_EXISTS
+    global _instance_lock
+    try:
+        import errno
+        import fcntl
+        from zcode_gateway.paths import _per_user_dir
+        lock_dir = _per_user_dir()
+        lock_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        fh = open(lock_dir / "single-instance.lock", "a+")
+        try:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            fh.close()
+            if exc.errno in (errno.EAGAIN, errno.EACCES, errno.EWOULDBLOCK):
+                return True
+            return False
+    except OSError:
+        return False
+    _instance_lock = fh
+    return False
 
 
 def _notify(message: str) -> None:
     """Minimal message box without pulling in a GUI toolkit."""
-    try:
-        ctypes.windll.user32.MessageBoxW(0, message, "Zcode Gateway", 0x40)
-    except Exception:
-        sys.stderr.write(message + "\n")
+    if sys.platform == "win32":
+        try:
+            ctypes.windll.user32.MessageBoxW(0, message, "Zcode Gateway", 0x40)
+            return
+        except Exception:
+            pass
+    elif sys.platform == "darwin":
+        try:
+            import subprocess
+            subprocess.run(
+                ["osascript", "-e", "on run argv",
+                 "-e", 'display alert "Zcode Gateway" message (item 1 of argv)',
+                 "-e", "end run", message],
+                timeout=60, check=False)
+            return
+        except Exception:
+            pass
+    sys.stderr.write(message + "\n")
 
 
 # origin of the running gateway (host:port from config); remembered so the
@@ -65,10 +104,35 @@ _last_gateway_origin: str | None = None
 _last_gateway_context: ssl.SSLContext | None = None
 
 
+def _desktop_log_dir() -> str:
+    if sys.platform == "win32":
+        return os.path.join(os.environ.get("LOCALAPPDATA", "."), "ZcodeGateway")
+    if sys.platform == "darwin":
+        return os.path.join(os.path.expanduser("~/Library/Logs"), "ZcodeGateway")
+    state = os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state"))
+    return os.path.join(state, "ZcodeGateway")
+
+
+def _isatty(stream) -> bool:
+    try:
+        return bool(stream is not None and stream.isatty())
+    except Exception:
+        return False
+
+
 def _fix_streams() -> None:
-    """A --windowed frozen exe has no console; sys.stdout/err may be None.
-    pywebview and the app log through these — give them a real file."""
-    log_dir = os.path.join(os.environ.get("LOCALAPPDATA", "."), "ZcodeGateway")
+    """A windowed frozen app has no console; sys.stdout/err may be None.
+
+    Terminal launches and the frozen smoke test keep their own streams.
+    Set ZCODE_GATEWAY_FOREGROUND_LOG=1 to force that even when stdout is
+    not a tty. A Finder-launched .app logs under ~/Library/Logs.
+    """
+    missing = sys.stdout is None or sys.stderr is None
+    frozen_background = bool(getattr(sys, "frozen", False) and not _isatty(sys.stdout))
+    keep_foreground = os.environ.get("ZCODE_GATEWAY_FOREGROUND_LOG") == "1"
+    if not missing and (keep_foreground or not frozen_background):
+        return
+    log_dir = _desktop_log_dir()
     os.makedirs(log_dir, exist_ok=True)
     path = os.path.join(log_dir, "zcode-gateway.log")
     for name in ("stdout", "stderr"):
@@ -258,9 +322,17 @@ def main() -> None:
     browser_fallback = False
     if not _wait_for(url, context=context):
         browser_fallback = True   # serve in the browser; keep the process (and the gateway thread) alive
-    elif not _webview2_available():
+    elif sys.platform == "win32" and not _webview2_available():
         # native window impossible on this machine: install prompt + browser
         browser_fallback = _offer_webview2_or_browser(url)
+    else:
+        try:
+            import webview as _webview_probe
+        except Exception:
+            browser_fallback = True
+        else:
+            if not hasattr(_webview_probe, "create_window"):
+                browser_fallback = True
 
     if browser_fallback:
         # The gateway runs in a DAEMON thread — returning from main() kills
@@ -278,7 +350,11 @@ def main() -> None:
         "Zcode Gateway", url,
         width=1280, height=800, min_size=(980, 620),
         background_color="#0f1115", text_select=True)
-    webview.start(gui="edgechromium")
+    # edgechromium is the Windows WebView2 backend. macOS uses Cocoa/WebKit.
+    if sys.platform == "win32":
+        webview.start(gui="edgechromium")
+    else:
+        webview.start()
 
     # The window closed. edgechromium/pythonnet leave non-daemon threads that
     # keep the interpreter — and with it the port and the single-instance

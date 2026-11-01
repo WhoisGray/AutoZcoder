@@ -65,3 +65,20 @@ jobs:
           .venv/bin/python -m pip install -r requirements/server.txt -r requirements/dev.txt
       - name: Run tests
         run: .venv/bin/python -m pytest tests -q
+
+  test-macos:
+    # macOS is a supported desktop target: the suite must pass here too,
+    # not only on Windows and Linux.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Create venv + install deps (macOS requirements)
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements/macos.txt -r requirements/dev.txt
+      - name: Run tests
+        run: .venv/bin/python -m pytest tests -q
